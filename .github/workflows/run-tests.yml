@@ -1,0 +1,35 @@
+name: Run tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v2
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1.1.0
+        with:
+          deno-version: v1.x
+
+      - name: Verify formatting
+        run: deno fmt --check --options-line-width 120
+
+      - name: Run linter
+        run: deno lint
+
+      - name: Run tests
+        run: deno test
+
+      - name: Start MinIO for integration tests
+        run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2021-10-23T03-28-24Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+
+      - name: Run integration tests
+        run: deno test --allow-net integration.ts
