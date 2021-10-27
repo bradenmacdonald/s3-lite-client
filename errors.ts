@@ -1,3 +1,5 @@
+import { parse as parseXML } from "./xml-parser.ts";
+
 /**
  * Base class for all errors raised by this S3 client.
  */
@@ -41,9 +43,48 @@ export class SecretKeyRequiredError extends DenoS3LiteClientError {}
 /** Any error thrown by the server */
 export class S3Error extends DenoS3LiteClientError {
   readonly statusCode: number;
+  readonly code: string;
+  readonly key: string | undefined;
+  readonly bucketName: string | undefined;
+  readonly resource: string | undefined;
+  readonly region: string | undefined;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    statusCode: number,
+    code: string,
+    message: string,
+    otherData: { key?: string; bucketName?: string; resource?: string; region?: string } = {},
+  ) {
     super(message);
     this.statusCode = statusCode;
+    this.code = code;
+    this.key = otherData.key;
+    this.bucketName = otherData.bucketName;
+    this.resource = otherData.resource;
+    this.region = otherData.region;
+  }
+}
+
+export async function parseServerError(response: Response): Promise<S3Error> {
+  try {
+    const xmlParsed = parseXML(await response.text());
+    const errorRoot = xmlParsed.root;
+    if (errorRoot?.name !== "Error") {
+      throw new Error("Invalid root, expected <Error>");
+    }
+    const code = errorRoot.children.find((c) => c.name === "Code")?.content ?? "UnknownErrorCode";
+    const message = errorRoot.children.find((c) => c.name === "Message")?.content ??
+      "The error message could not be determined.";
+    const key = errorRoot.children.find((c) => c.name === "Key")?.content;
+    const bucketName = errorRoot.children.find((c) => c.name === "BucketName")?.content;
+    const resource = errorRoot.children.find((c) => c.name === "Resource")?.content; // e.g. the object key
+    const region = errorRoot.children.find((c) => c.name === "Region")?.content;
+    return new S3Error(response.status, code, message, { key, bucketName, resource, region });
+  } catch {
+    return new S3Error(
+      response.status,
+      "UnrecognizedError",
+      `Error: Unexpected response code ${response.status} ${response.statusText}. Unable to parse response as XML.`,
+    );
   }
 }

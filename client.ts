@@ -190,10 +190,16 @@ export class Client {
       body: payload,
     });
     if (response.status !== statusCode) {
-      throw new errors.S3Error(
-        `Unexpected response code from the server.`,
-        response.status,
-      );
+      if (response.status >= 400) {
+        const error = await errors.parseServerError(response);
+        throw error;
+      } else {
+        throw new errors.S3Error(
+          response.status,
+          "UnexpectedStatusCode",
+          `Unexpected response code from the server (expected ${statusCode}, got ${response.status} ${response.statusText}).`,
+        );
+      }
     }
     return response;
   }
