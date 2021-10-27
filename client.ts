@@ -137,26 +137,37 @@ export class Client {
   /**
    * Make a single request to S3
    */
-  public async makeRequest(options: {
+  public async makeRequest({ method, payload, ...options }: {
     method: "POST" | "GET" | "PUT" | "DELETE" | string;
-    headers?: Record<string, string>;
-    query: string;
+    headers?: Headers;
+    query?: string | Record<string, string>;
     objectName: string;
     bucketName?: string;
     /** The status code we expect the server to return */
     statusCode?: number;
-  }, payload?: Uint8Array): Promise<Response> {
+    /** The request body */
+    payload?: Uint8Array;
+    /**
+     * returnBody: We have to read the request body to avoid leaking resources.
+     * So by default this method will read and ignore the body. If you actually
+     * need it, set returnBody: true and this function won't touch it so that
+     * the caller can read it.
+     */
+    returnBody?: boolean;
+  }): Promise<Response> {
     const date = new Date();
     const bucketName = this.getBucketName(options);
-    const headers = new Headers(options.headers ?? {});
+    const headers = options.headers ?? new Headers();
     const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
+    const queryAsString = typeof options.query === "object"
+      ? new URLSearchParams(options.query).toString()
+      : (options.query);
     const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
-      (options.query ? `?${options.query}` : "");
+      (queryAsString ? `?${queryAsString}` : "");
     const statusCode = options.statusCode ?? 200;
 
     if (
-      options.method === "POST" || options.method === "PUT" ||
-      options.method === "DELETE"
+      method === "POST" || method === "PUT" || method === "DELETE"
     ) {
       if (payload === undefined) {
         throw new errors.InvalidArgumentError(
@@ -173,8 +184,8 @@ export class Client {
       "authorization",
       await signV4({
         headers,
-        method: options.method,
-        path: options.objectName,
+        method,
+        path,
         accessKey: this.accessKey,
         secretKey: this.#secretKey,
         region: this.region,
@@ -185,10 +196,11 @@ export class Client {
     const fullUrl = `${this.protocol}//${host}${path}`;
 
     const response = await fetch(fullUrl, {
-      method: options.method,
+      method,
       headers,
       body: payload,
     });
+
     if (response.status !== statusCode) {
       if (response.status >= 400) {
         const error = await errors.parseServerError(response);
@@ -200,6 +212,10 @@ export class Client {
           `Unexpected response code from the server (expected ${statusCode}, got ${response.status} ${response.statusText}).`,
         );
       }
+    }
+    if (!options.returnBody) {
+      // Just read the body and ignore its contents, to avoid leaking resources.
+      await response.body?.getReader().read();
     }
     return response;
   }
@@ -277,7 +293,7 @@ export class Client {
       metaData: options?.metaData ?? {},
     });
     // stream => chunker => uploader
-    stream.pipeThrough(chunker).pipeTo(uploader);
+    await stream.pipeThrough(chunker).pipeTo(uploader);
     return await uploader.uploadDone;
   }
 
@@ -315,7 +331,7 @@ export class Client {
       );
     }
     const method = "POST";
-    const headers = { ...options.metaData };
+    const headers = new Headers(options.metaData);
     const query = "uploads";
     const response = await this.makeRequest({
       method,

@@ -1,5 +1,4 @@
 import type { Client, UploadedObjectInfo } from "./client.ts";
-// import { crypto, encodeBase64 } from "./deps.ts";
 import { getVersionId, sanitizeETag } from "./helpers.ts";
 
 /**
@@ -16,10 +15,14 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
     metaData: Record<string, string>;
   }) {
     let markUploadDone: (result: UploadedObjectInfo) => void,
-      markUploadError: () => void;
+      markUploadError: (err: Error) => void;
+    let uploadFailed = false;
     const uploadDone = new Promise<UploadedObjectInfo>((resolve, reject) => {
       markUploadDone = resolve;
-      markUploadError = reject;
+      markUploadError = (err: Error) => {
+        reject(err);
+        uploadFailed = true;
+      };
     });
     let nextPartNumber = 1;
     let uploadId: string;
@@ -27,27 +30,28 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
 
     super({
       start() {}, // required
-      async write(chunk, controller) {
+      async write(chunk, _controller) {
+        if (uploadFailed) {
+          return; // Ignore further data.
+        }
         const method = "PUT";
-        const headers = {
-          "Content-Length": String(chunk.length),
-        };
         const partNumber = nextPartNumber++;
 
         try {
           // We are going to upload this file in a single part, because it's small enough
           if (partNumber == 1 && chunk.length < partSize) {
             // PUT the chunk in a single request — use an empty query.
-            const options = {
+            const response = await client.makeRequest({
               method,
-              // Set user metadata as this is not a multipart upload
-              headers: { ...metaData, ...headers },
-              query: "",
+              headers: new Headers({
+                // Set user metadata as this is not a multipart upload
+                ...metaData,
+                "Content-Length": String(chunk.length),
+              }),
               bucketName,
               objectName,
-            };
-
-            const response = await client.makeRequest(options, chunk);
+              payload: chunk,
+            });
             markUploadDone({
               etag: sanitizeETag(response.headers.get("etag") ?? undefined),
               versionId: getVersionId(response.headers),
@@ -64,19 +68,14 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
             })).uploadId;
           }
           // Upload the next part
-          const query = new URLSearchParams({
-            partNumber: partNumber.toString(),
-            uploadId,
-          }).toString();
-          const options = {
+          const response = await client.makeRequest({
             method,
-            query,
-            headers,
+            query: { partNumber: partNumber.toString(), uploadId },
+            headers: new Headers({ "Content-Length": String(chunk.length) }),
             bucketName: bucketName,
             objectName: objectName,
-          };
-
-          const response = await client.makeRequest(options, chunk);
+            payload: chunk,
+          });
           // In order to aggregate the parts together, we need to collect the etags.
           let etag = response.headers.get("etag") ?? "";
           if (etag) {
@@ -84,8 +83,10 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
           }
           etags.push({ part: partNumber, etag });
         } catch (err) {
-          markUploadError();
-          controller.error(err);
+          markUploadError(err);
+          // Throwing an error will make future writes to this fail with the given error,
+          // but it also causes an uncaught promise somewhere. TODO: hunt down that uncaught promise.
+          //throw err;
         }
       },
       close() {
