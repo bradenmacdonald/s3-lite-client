@@ -1,5 +1,5 @@
 import type { Client, UploadedObjectInfo } from "./client.ts";
-import { crypto, encodeBase64 } from "./deps.ts";
+// import { crypto, encodeBase64 } from "./deps.ts";
 import { getVersionId, sanitizeETag } from "./helpers.ts";
 
 /**
@@ -29,11 +29,8 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
       start() {}, // required
       async write(chunk, controller) {
         const method = "PUT";
-        const md5digest = await crypto.subtle.digest("MD5", chunk);
         const headers = {
           "Content-Length": String(chunk.length),
-          // Note: it's not a good idea to send the MD5 digest if the connection is insecure
-          "Content-MD5": encodeBase64(md5digest),
         };
         const partNumber = nextPartNumber++;
 
