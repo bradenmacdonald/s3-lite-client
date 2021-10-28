@@ -18,8 +18,10 @@ Supported functionality:
 ## Usage example
 
 ```typescript
+import { S3Client } from "https://raw.githubusercontent.com/bradenmacdonald/deno-s3-lite-client/main/mod.ts";
+
 // Connecting to a local MinIO server:
-const s3client = new Client({
+const s3client = new S3Client({
   endPoint: "localhost",
   port: 9000,
   useSSL: false,
@@ -31,8 +33,10 @@ const s3client = new Client({
 });
 
 // Upload a file:
-await client.putObject("test.txt", "This is the contents of the file.");
+await s3client.putObject("test.txt", "This is the contents of the file.");
 ```
+
+For more examples, check out the tests in [`integration.ts`](./integration.ts)
 
 ## Developer notes
 
