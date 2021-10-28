@@ -7,6 +7,11 @@ tiny subset of that client's functionality has been implemented.
 
 Supported functionality:
 
+- List objects: `for await (const object of client.listObjects(options)) { ... }`
+  - Handles pagination transparently
+  - Supports filtering using a prefix
+  - Supports [grouping using a delimiter](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html)
+    (use `client.listObjectsGrouped(...)`)
 - Download an object: `client.getObject("key", options)`
   - Supports streaming the response
 - Download a partial object: `client.getPartialObject("key", options)`

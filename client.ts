@@ -1,9 +1,17 @@
 import { TransformChunkSizes } from "./transform-chunk-sizes.ts";
 import { readableStreamFromIterable } from "./deps.ts";
 import * as errors from "./errors.ts";
-import { isValidBucketName, isValidObjectName, isValidPort, makeDateLong, sha256digestHex } from "./helpers.ts";
+import {
+  isValidBucketName,
+  isValidObjectName,
+  isValidPort,
+  makeDateLong,
+  sanitizeETag,
+  sha256digestHex,
+} from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
 import { signV4 } from "./signing.ts";
+import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
   /** Hostname of the endpoint. Not a URL, just the hostname with no protocol or port. */
@@ -64,6 +72,24 @@ export type ItemBucketMetadata = {
 export interface UploadedObjectInfo {
   etag: string;
   versionId: string | null;
+}
+
+/** Details about an object as returned by a "list objects" operation */
+export interface S3Object {
+  type: "Object";
+  key: string;
+  lastModified: Date;
+  etag: string;
+  size: number;
+}
+/**
+ * When listing objects and returning a delimited result (e.g. grouped by folders),
+ * this represents a group of keys with a common prefix.
+ * See https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html
+ */
+export interface CommonPrefix {
+  type: "CommonPrefix";
+  prefix: string;
 }
 
 /** The minimum allowed part size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
@@ -150,7 +176,7 @@ export class Client {
     const headers = options.headers ?? new Headers();
     const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
     const queryAsString = typeof options.query === "object"
-      ? new URLSearchParams(options.query).toString()
+      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
     const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
@@ -267,6 +293,140 @@ export class Client {
       statusCode,
       returnBody: true,
     });
+  }
+
+  /**
+   * List objects in the bucket, optionally filtered by the given key prefix.
+   *
+   * This returns a flat list; use listObjectsGrouped() for more advanced behavior.
+   */
+  public async *listObjects(
+    options: {
+      prefix?: string;
+      bucketName?: string;
+      /** Don't return more than this many results in total. Default: unlimited. */
+      maxResults?: number;
+      /**
+       * How many keys to retrieve per HTTP request (default: 1000)
+       * This is a maximum; sometimes fewer keys will be returned.
+       * This will not affect the shape of the result, just its efficiency.
+       */
+      pageSize?: number;
+    },
+  ): AsyncGenerator<S3Object, void, undefined> {
+    for await (const result of this.listObjectsGrouped({ ...options, delimiter: "" })) {
+      // Since we didn't specify a delimiter, listObjectsGrouped() should only return
+      // actual object keys, not any CommonPrefix groupings.
+      if (result.type === "Object") {
+        yield result;
+      } else {
+        throw new Error(`Unexpected result from listObjectsGrouped(): ${result}`);
+      }
+    }
+  }
+
+  /**
+   * List objects in the bucket, grouped based on the specified "delimiter".
+   *
+   * See https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html
+   */
+  public async *listObjectsGrouped(
+    options: {
+      delimiter: string;
+      prefix?: string;
+      bucketName?: string;
+      /** Don't return more than this many results in total. Default: unlimited. */
+      maxResults?: number;
+      /**
+       * How many keys to retrieve per HTTP request (default: 1000)
+       * This is a maximum; sometimes fewer keys will be returned.
+       * This will not affect the shape of the result, just its efficiency.
+       */
+      pageSize?: number;
+    },
+  ): AsyncGenerator<S3Object | CommonPrefix, void, undefined> {
+    const bucketName = this.getBucketName(options);
+    let continuationToken = "";
+    const pageSize = options.pageSize ?? 1_000;
+    if (pageSize < 1 || pageSize > 1_000) {
+      throw new errors.InvalidArgumentError("pageSize must be between 1 and 1,000.");
+    }
+    let resultCount = 0; // Count the total number of results
+
+    while (true) {
+      // How many results to fetch in the next request:
+      const maxKeys = options.maxResults ? Math.min(pageSize, options.maxResults - resultCount) : pageSize;
+      if (maxKeys === 0) {
+        return;
+      }
+      // Fetch the next page of results:
+      const pageResponse = await this.makeRequest({
+        method: "GET",
+        bucketName,
+        objectName: "",
+        query: {
+          "list-type": "2",
+          prefix: options.prefix ?? "",
+          delimiter: options.delimiter,
+          "max-keys": String(maxKeys),
+          ...(continuationToken ? { "continuation-token": continuationToken } : {}),
+        },
+        returnBody: true,
+      });
+      const responseText = await pageResponse.text();
+      // Parse the response XML.
+      // See https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
+      const root = parseXML(responseText).root;
+      if (!root || root.name !== "ListBucketResult") {
+        throw new Error(`Unexpected response: ${responseText}`);
+      }
+      // If a delimiter was specified, first return any common prefixes from this page of results:
+      const commonPrefixesElement = root.children.find((c) => c.name === "CommonPrefixes");
+      const toYield: Array<S3Object | CommonPrefix> = [];
+      if (commonPrefixesElement) {
+        for (const prefixElement of commonPrefixesElement.children) {
+          toYield.push({
+            type: "CommonPrefix",
+            prefix: prefixElement.content ?? "",
+          });
+          resultCount++;
+        }
+      }
+      // Now return all regular object keys found in the result:
+      for (const objectElement of root.children.filter((c) => c.name === "Contents")) {
+        toYield.push({
+          type: "Object",
+          key: objectElement.children.find((c) => c.name === "Key")?.content ?? "",
+          etag: sanitizeETag(objectElement.children.find((c) => c.name === "ETag")?.content ?? ""),
+          size: parseInt(objectElement.children.find((c) => c.name === "Size")?.content ?? "", 10),
+          lastModified: new Date(objectElement.children.find((c) => c.name === "LastModified")?.content ?? "invalid"),
+        });
+        resultCount++;
+      }
+      // Now, interlace the commonprefixes and regular objects, so that the overall result stays sorted
+      // in alphabetical order, instead of mixed by common prefixes first then other entries later.
+      // This way guarantees consistent behavior regardless of page size.
+      toYield.sort((a, b) => {
+        const aStr = a.type === "Object" ? a.key : a.prefix;
+        const bStr = b.type === "Object" ? b.key : b.prefix;
+        return aStr > bStr ? 1 : aStr < bStr ? -1 : 0;
+      });
+      for (const entry of toYield) {
+        yield entry;
+      }
+      const isTruncated = root.children.find((c) => c.name === "IsTruncated")?.content === "true";
+      if (isTruncated) {
+        // There are more results.
+        const nextContinuationToken = root.children.find((c) => c.name === "NextContinuationToken")?.content;
+        if (!nextContinuationToken) {
+          throw new Error("Unexpectedly missing continuation token, but server said there are more results.");
+        }
+        continuationToken = nextContinuationToken;
+      } else {
+        // That's it, no more results.
+        return;
+      }
+    }
   }
 
   async putObject(

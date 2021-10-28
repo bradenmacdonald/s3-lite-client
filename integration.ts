@@ -19,6 +19,9 @@ const config = {
 };
 const client = new S3Client(config);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Error parsing
+
 Deno.test({
   name: "error parsing",
   fn: async () => {
@@ -39,6 +42,9 @@ Deno.test({
     );
   },
 });
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// putObject()
 
 Deno.test({
   name: "putObject() can upload a small file",
@@ -67,6 +73,9 @@ Deno.test({
   },
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// getObject()
+
 Deno.test({
   name: "getObject() can download a small file",
   fn: async () => {
@@ -78,10 +87,115 @@ Deno.test({
 });
 
 Deno.test({
-  name: "getObject() can download a partial file",
+  name: "getPartialObject() can download a partial file",
   fn: async () => {
     await client.putObject("test-get2.txt", "This is the contents of the file. 👻");
     const response = await client.getPartialObject("test-get2.txt", { offset: 12, length: 8 });
     assertEquals(await response.text(), "contents");
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// listObjects()
+
+Deno.test({
+  name: "listObjects() can return an empty list when no keys match the prefix",
+  fn: async () => {
+    const response = client.listObjects({ prefix: "NO MATCH" });
+    assertEquals(await response.next(), { done: true, value: undefined });
+  },
+});
+
+Deno.test({
+  name: "listObjects() can return a flat list of objects under a certain prefix",
+  fn: async () => {
+    const prefix = "list-objects-test-1/";
+    await client.putObject(`not-under-that-prefix.txt`, "file Zero");
+    await client.putObject(`${prefix}file-a.txt`, "file A");
+    await client.putObject(`${prefix}file-b.txt`, "file B");
+    await client.putObject(`${prefix}subpath/file-c.txt`, "file C");
+    await client.putObject(`${prefix}subpath/file-d.txt`, "file D");
+    const response = client.listObjects({ prefix });
+    const results = [];
+    for await (const result of response) {
+      results.push(result);
+    }
+    assertEquals(results.length, 4);
+    assertEquals(results[0].key, "list-objects-test-1/file-a.txt");
+    assertEquals(results[0].etag, "31d97c4d04593b21b399ace73b061c34");
+    assertEquals(results[0].size, 6);
+    assertEquals(results[0].type, "Object");
+    assertEquals(results[0].lastModified instanceof Date, true);
+    // This test may occasionally be flaky if run at the very instant we're changing to a new month
+    // or a new year, but that's OK:
+    assertEquals(results[0].lastModified.getFullYear(), new Date().getFullYear());
+    assertEquals(results[0].lastModified.getMonth(), new Date().getMonth());
+
+    assertEquals(results[1].key, "list-objects-test-1/file-b.txt");
+    assertEquals(results[1].etag, "1651d570b74339e94cace90cde7d3147");
+    assertEquals(results[2].key, "list-objects-test-1/subpath/file-c.txt");
+    assertEquals(results[3].key, "list-objects-test-1/subpath/file-d.txt");
+  },
+});
+
+Deno.test({
+  name: "listObjects() can return a flat list of objects, spanning multiple pages",
+  fn: async () => {
+    const prefix = "list-objects-test-2/";
+    // Create 30 files, in parallel
+    const putPromises = [];
+    for (let i = 0; i < 30; i++) {
+      putPromises.push(client.putObject(`${prefix}file-${i < 10 ? "0" : ""}${i}.txt`, `file ${i} contents`));
+    }
+    await Promise.all(putPromises);
+    // Now retrieve them:
+    const response = client.listObjects({ prefix, pageSize: 10 });
+    const results = [];
+    for await (const result of response) {
+      results.push(result);
+    }
+    assertEquals(results.length, 30);
+    assertEquals(results[0].key, `${prefix}file-00.txt`);
+    assertEquals(results[29].key, `${prefix}file-29.txt`);
+
+    // And it can limit the total number of results:
+    const limitedResponse = client.listObjects({ prefix, pageSize: 10, maxResults: 25 });
+    const limitedResults = [];
+    for await (const result of limitedResponse) {
+      limitedResults.push(result);
+    }
+    assertEquals(limitedResults.length, 25);
+  },
+});
+
+Deno.test({
+  name: "listObjectsGrouped() can group results using a delimiter",
+  fn: async () => {
+    const prefix = "list-objects-test-3/";
+    await client.putObject(`${prefix}file-a.txt`, "file A");
+    await client.putObject(`${prefix}file-b.txt`, "file B");
+    await client.putObject(`${prefix}subpath-1/file-1-a.txt`, "file 1A");
+    await client.putObject(`${prefix}subpath-1/file-1-b.txt`, "file 1B");
+    await client.putObject(`${prefix}subpath-2/file-2-a.txt`, "file 1A");
+    await client.putObject(`${prefix}subpath-2/file-2-b.txt`, "file 1B");
+    await client.putObject(`${prefix}x-file.txt`, "file X");
+
+    const response = client.listObjectsGrouped({ prefix, delimiter: "/", pageSize: 3 });
+    const results = [];
+    for await (const result of response) {
+      results.push(result);
+    }
+    assertEquals(results.length, 5);
+    // Note the order that we get the results in:
+    assert(results[0].type === "Object");
+    assertEquals(results[0].key, `${prefix}file-a.txt`);
+    assert(results[1].type === "Object");
+    assertEquals(results[1].key, `${prefix}file-b.txt`);
+    assert(results[2].type === "CommonPrefix");
+    assertEquals(results[2].prefix, `${prefix}subpath-1/`);
+    assert(results[3].type === "CommonPrefix");
+    assertEquals(results[3].prefix, `${prefix}subpath-2/`);
+    assert(results[4].type === "Object");
+    assertEquals(results[4].key, `${prefix}x-file.txt`);
   },
 });
