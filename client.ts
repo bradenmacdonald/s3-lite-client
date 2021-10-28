@@ -198,7 +198,7 @@ export class Client {
         const error = await errors.parseServerError(response);
         throw error;
       } else {
-        throw new errors.S3Error(
+        throw new errors.ServerError(
           response.status,
           "UnexpectedStatusCode",
           `Unexpected response code from the server (expected ${statusCode}, got ${response.status} ${response.statusText}).`,

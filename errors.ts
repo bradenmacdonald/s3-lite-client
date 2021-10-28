@@ -41,7 +41,7 @@ export class AccessKeyRequiredError extends DenoS3LiteClientError {}
 export class SecretKeyRequiredError extends DenoS3LiteClientError {}
 
 /** Any error thrown by the server */
-export class S3Error extends DenoS3LiteClientError {
+export class ServerError extends DenoS3LiteClientError {
   readonly statusCode: number;
   readonly code: string;
   readonly key: string | undefined;
@@ -65,7 +65,7 @@ export class S3Error extends DenoS3LiteClientError {
   }
 }
 
-export async function parseServerError(response: Response): Promise<S3Error> {
+export async function parseServerError(response: Response): Promise<ServerError> {
   try {
     const xmlParsed = parseXML(await response.text());
     const errorRoot = xmlParsed.root;
@@ -79,9 +79,9 @@ export async function parseServerError(response: Response): Promise<S3Error> {
     const bucketName = errorRoot.children.find((c) => c.name === "BucketName")?.content;
     const resource = errorRoot.children.find((c) => c.name === "Resource")?.content; // e.g. the object key
     const region = errorRoot.children.find((c) => c.name === "Region")?.content;
-    return new S3Error(response.status, code, message, { key, bucketName, resource, region });
+    return new ServerError(response.status, code, message, { key, bucketName, resource, region });
   } catch {
-    return new S3Error(
+    return new ServerError(
       response.status,
       "UnrecognizedError",
       `Error: Unexpected response code ${response.status} ${response.statusText}. Unable to parse response as XML.`,

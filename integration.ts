@@ -5,8 +5,7 @@
  */
 import { readableStreamFromIterable } from "./deps.ts";
 import { assert, assertEquals, assertRejects } from "./deps-tests.ts";
-import { Client } from "./client.ts";
-import * as errors from "./errors.ts";
+import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
   endPoint: "localhost",
@@ -18,16 +17,16 @@ const config = {
   bucket: "dev-bucket",
   pathStyle: true,
 };
-const client = new Client(config);
+const client = new S3Client(config);
 
 Deno.test({
   name: "error parsing",
   fn: async () => {
-    const unauthorizedClient = new Client({ ...config, secretKey: "invalid key" });
+    const unauthorizedClient = new S3Client({ ...config, secretKey: "invalid key" });
     await assertRejects(
       () => unauthorizedClient.putObject("test.txt", "This is the contents of the file."),
       (err: Error) => {
-        assert(err instanceof errors.S3Error);
+        assert(err instanceof S3Errors.ServerError);
         assertEquals(err.statusCode, 403);
         assertEquals(err.code, "SignatureDoesNotMatch");
         assertEquals(
