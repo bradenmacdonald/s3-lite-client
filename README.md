@@ -5,6 +5,30 @@ A very lightweight S3 client for Deno. Has no dependencies outside of the Deno s
 It is derived from the excellent [MinIO JavaScript Client](https://github.com/minio/minio-js). Note however that only a
 tiny subset of that client's functionality has been implemented.
 
+Supported functionality:
+
+- Upload a file
+- Upload a file (using streams API and multi-part uploads)
+
+## Usage example
+
+```typescript
+// Connecting to a local MinIO server:
+const s3client = new Client({
+  endPoint: "localhost",
+  port: 9000,
+  useSSL: false,
+  region: "dev-region",
+  accessKey: "AKIA_DEV",
+  secretKey: "secretkey",
+  bucket: "dev-bucket",
+  pathStyle: true,
+});
+
+// Upload a file:
+await client.putObject("test.txt", "This is the contents of the file.");
+```
+
 ## Developer notes
 
 To run the tests, please use:

@@ -3,9 +3,18 @@ import { getVersionId, sanitizeETag } from "./helpers.ts";
 
 /**
  * Stream a file to S3
+ *
+ * We assume that TransformChunkSizes has been used first, so that this stream
+ * will always receive chunks of exactly size "partSize", except for the final
+ * chunk.
+ *
+ * Note that the total size of the upload doesn't have to be known in advance,
+ * as long as TransformChunkSizes was used first. Then this ObjectUploader
+ * will decide based on the size of the first chunk whether it is doing a
+ * single-request upload or a multi-part upload.
  */
 export class ObjectUploader extends WritableStream<Uint8Array> {
-  uploadDone: Promise<UploadedObjectInfo>;
+  public readonly getResult: () => UploadedObjectInfo;
 
   constructor({ client, bucketName, objectName, partSize, metaData }: {
     client: Client;
@@ -14,16 +23,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
     partSize: number;
     metaData: Record<string, string>;
   }) {
-    let markUploadDone: (result: UploadedObjectInfo) => void,
-      markUploadError: (err: Error) => void;
-    let uploadFailed = false;
-    const uploadDone = new Promise<UploadedObjectInfo>((resolve, reject) => {
-      markUploadDone = resolve;
-      markUploadError = (err: Error) => {
-        reject(err);
-        uploadFailed = true;
-      };
-    });
+    let result: UploadedObjectInfo;
     let nextPartNumber = 1;
     let uploadId: string;
     const etags: { part: number; etag: string }[] = [];
@@ -31,9 +31,6 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
     super({
       start() {}, // required
       async write(chunk, _controller) {
-        if (uploadFailed) {
-          return; // Ignore further data.
-        }
         const method = "PUT";
         const partNumber = nextPartNumber++;
 
@@ -52,10 +49,10 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
               objectName,
               payload: chunk,
             });
-            markUploadDone({
+            result = {
               etag: sanitizeETag(response.headers.get("etag") ?? undefined),
               versionId: getVersionId(response.headers),
-            });
+            };
             return;
           }
 
@@ -83,16 +80,26 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
           }
           etags.push({ part: partNumber, etag });
         } catch (err) {
-          markUploadError(err);
-          // Throwing an error will make future writes to this fail with the given error,
-          // but it also causes an uncaught promise somewhere. TODO: hunt down that uncaught promise.
-          //throw err;
+          // Throwing an error will make future writes to this sink fail.
+          throw err;
         }
       },
-      close() {
+      async close() {
+        if (result) {
+          // This was already completed, in a single upload. Nothing more to do.
+        } else if (uploadId) {
+          // Complete the multi-part upload
+          result = await client.completeMultipartUpload({ bucketName, objectName, uploadId, etags });
+        } else {
+          throw new Error("Stream was closed without uploading any data.");
+        }
       },
     });
-
-    this.uploadDone = uploadDone;
+    this.getResult = () => {
+      if (result === undefined) {
+        throw new Error("Result is not ready. await the stream first.");
+      }
+      return result;
+    };
   }
 }
