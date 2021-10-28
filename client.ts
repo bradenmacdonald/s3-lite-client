@@ -1,18 +1,9 @@
 import { TransformChunkSizes } from "./transform-chunk-sizes.ts";
 import { readableStreamFromIterable } from "./deps.ts";
 import * as errors from "./errors.ts";
-import {
-  getVersionId,
-  isValidBucketName,
-  isValidObjectName,
-  isValidPort,
-  makeDateLong,
-  sanitizeETag,
-  sha256digestHex,
-} from "./helpers.ts";
+import { isValidBucketName, isValidObjectName, isValidPort, makeDateLong, sha256digestHex } from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
 import { signV4 } from "./signing.ts";
-import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
   /** Hostname of the endpoint. Not a URL, just the hostname with no protocol or port. */
@@ -322,91 +313,5 @@ export class Client {
       // Try part sizes as 64MB, 80MB, 96MB etc.
       partSize += 16 * 1024 * 1024;
     }
-  }
-
-  /** Initiate a new multipart upload request. */
-  public async initiateNewMultipartUpload(
-    options: {
-      bucketName?: string;
-      objectName: string;
-      metaData?: ItemBucketMetadata;
-    },
-  ): Promise<{ uploadId: string }> {
-    const bucketName = this.getBucketName(options);
-    if (!isValidObjectName(options.objectName)) {
-      throw new errors.InvalidObjectNameError(
-        `Invalid object name: ${options.objectName}`,
-      );
-    }
-    const method = "POST";
-    const headers = new Headers(options.metaData);
-    const query = "uploads";
-    const response = await this.makeRequest({
-      method,
-      bucketName,
-      objectName: options.objectName,
-      query,
-      headers,
-      returnBody: true,
-    });
-    // Response is like:
-    // <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    //   <Bucket>dev-bucket</Bucket>
-    //   <Key>test-32m.dat</Key>
-    //   <UploadId>422f976b-35e0-4a55-aca7-bf2d46277f93</UploadId>
-    // </InitiateMultipartUploadResult>
-    const responseText = await response.text();
-    const root = parseXML(responseText).root;
-    if (!root || root.name !== "InitiateMultipartUploadResult") {
-      throw new Error(`Unexpected response: ${responseText}`);
-    }
-    const uploadId = root.children.find((c) => c.name === "UploadId")?.content;
-    if (!uploadId) {
-      throw new Error(`Unable to get UploadId from response: ${responseText}`);
-    }
-    return { uploadId };
-  }
-
-  public async completeMultipartUpload(
-    { bucketName, objectName, uploadId, etags }: {
-      bucketName: string;
-      objectName: string;
-      uploadId: string;
-      etags: { part: number; etag: string }[];
-    },
-  ): Promise<UploadedObjectInfo> {
-    const payload = `
-      <CompleteMultipartUpload xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-          ${etags.map((et) => `  <Part><PartNumber>${et.part}</PartNumber><ETag>${et.etag}</ETag></Part>`).join("\n")}
-      </CompleteMultipartUpload>
-    `;
-    const response = await this.makeRequest({
-      method: "POST",
-      bucketName,
-      objectName,
-      query: `uploadId=${encodeURIComponent(uploadId)}`,
-      payload: new TextEncoder().encode(payload),
-      returnBody: true,
-    });
-    const responseText = await response.text();
-    // Example response:
-    // <?xml version="1.0" encoding="UTF-8"?>
-    // <CompleteMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    //   <Location>http://localhost:9000/dev-bucket/test-32m.dat</Location>
-    //   <Bucket>dev-bucket</Bucket>
-    //   <Key>test-32m.dat</Key>
-    //   <ETag>&#34;4581589392ae60eafdb031f441858c7a-7&#34;</ETag>
-    // </CompleteMultipartUploadResult>
-    const root = parseXML(responseText).root;
-    if (!root || root.name !== "CompleteMultipartUploadResult") {
-      throw new Error(`Unexpected response: ${responseText}`);
-    }
-    const etagRaw = root.children.find((c) => c.name === "ETag")?.content;
-    if (!etagRaw) throw new Error(`Unable to get ETag from response: ${responseText}`);
-    const versionId = getVersionId(response.headers);
-    return {
-      etag: sanitizeETag(etagRaw),
-      versionId,
-    };
   }
 }

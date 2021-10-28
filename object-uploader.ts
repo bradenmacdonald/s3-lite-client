@@ -1,5 +1,6 @@
-import type { Client, UploadedObjectInfo } from "./client.ts";
+import type { Client, ItemBucketMetadata, UploadedObjectInfo } from "./client.ts";
 import { getVersionId, sanitizeETag } from "./helpers.ts";
+import { parse as parseXML } from "./xml-parser.ts";
 
 /**
  * Stream a file to S3
@@ -58,7 +59,8 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
 
           /// If we get here, this is a streaming upload in multiple parts.
           if (partNumber === 1) {
-            uploadId = (await client.initiateNewMultipartUpload({
+            uploadId = (await initiateNewMultipartUpload({
+              client,
               bucketName,
               objectName,
               metaData,
@@ -89,7 +91,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
           // This was already completed, in a single upload. Nothing more to do.
         } else if (uploadId) {
           // Complete the multi-part upload
-          result = await client.completeMultipartUpload({ bucketName, objectName, uploadId, etags });
+          result = await completeMultipartUpload({ client, bucketName, objectName, uploadId, etags });
         } else {
           throw new Error("Stream was closed without uploading any data.");
         }
@@ -102,4 +104,86 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
       return result;
     };
   }
+}
+
+/** Initiate a new multipart upload request. */
+async function initiateNewMultipartUpload(
+  options: {
+    client: Client;
+    bucketName: string;
+    objectName: string;
+    metaData?: ItemBucketMetadata;
+  },
+): Promise<{ uploadId: string }> {
+  const method = "POST";
+  const headers = new Headers(options.metaData);
+  const query = "uploads";
+  const response = await options.client.makeRequest({
+    method,
+    bucketName: options.bucketName,
+    objectName: options.objectName,
+    query,
+    headers,
+    returnBody: true,
+  });
+  // Response is like:
+  // <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  //   <Bucket>dev-bucket</Bucket>
+  //   <Key>test-32m.dat</Key>
+  //   <UploadId>422f976b-35e0-4a55-aca7-bf2d46277f93</UploadId>
+  // </InitiateMultipartUploadResult>
+  const responseText = await response.text();
+  const root = parseXML(responseText).root;
+  if (!root || root.name !== "InitiateMultipartUploadResult") {
+    throw new Error(`Unexpected response: ${responseText}`);
+  }
+  const uploadId = root.children.find((c) => c.name === "UploadId")?.content;
+  if (!uploadId) {
+    throw new Error(`Unable to get UploadId from response: ${responseText}`);
+  }
+  return { uploadId };
+}
+
+async function completeMultipartUpload(
+  { client, bucketName, objectName, uploadId, etags }: {
+    client: Client;
+    bucketName: string;
+    objectName: string;
+    uploadId: string;
+    etags: { part: number; etag: string }[];
+  },
+): Promise<UploadedObjectInfo> {
+  const payload = `
+    <CompleteMultipartUpload xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        ${etags.map((et) => `  <Part><PartNumber>${et.part}</PartNumber><ETag>${et.etag}</ETag></Part>`).join("\n")}
+    </CompleteMultipartUpload>
+  `;
+  const response = await client.makeRequest({
+    method: "POST",
+    bucketName,
+    objectName,
+    query: `uploadId=${encodeURIComponent(uploadId)}`,
+    payload: new TextEncoder().encode(payload),
+    returnBody: true,
+  });
+  const responseText = await response.text();
+  // Example response:
+  // <?xml version="1.0" encoding="UTF-8"?>
+  // <CompleteMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  //   <Location>http://localhost:9000/dev-bucket/test-32m.dat</Location>
+  //   <Bucket>dev-bucket</Bucket>
+  //   <Key>test-32m.dat</Key>
+  //   <ETag>&#34;4581589392ae60eafdb031f441858c7a-7&#34;</ETag>
+  // </CompleteMultipartUploadResult>
+  const root = parseXML(responseText).root;
+  if (!root || root.name !== "CompleteMultipartUploadResult") {
+    throw new Error(`Unexpected response: ${responseText}`);
+  }
+  const etagRaw = root.children.find((c) => c.name === "ETag")?.content;
+  if (!etagRaw) throw new Error(`Unable to get ETag from response: ${responseText}`);
+  const versionId = getVersionId(response.headers);
+  return {
+    etag: sanitizeETag(etagRaw),
+    versionId,
+  };
 }
