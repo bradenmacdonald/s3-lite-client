@@ -66,3 +66,22 @@ Deno.test({
     assertEquals(response.etag, "4581589392ae60eafdb031f441858c7a-7");
   },
 });
+
+Deno.test({
+  name: "getObject() can download a small file",
+  fn: async () => {
+    const contents = "This is the contents of the file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
+    await client.putObject("test-get.txt", contents);
+    const response = await client.getObject("test-get.txt");
+    assertEquals(await response.text(), contents);
+  },
+});
+
+Deno.test({
+  name: "getObject() can download a partial file",
+  fn: async () => {
+    await client.putObject("test-get2.txt", "This is the contents of the file. 👻");
+    const response = await client.getPartialObject("test-get2.txt", { offset: 12, length: 8 });
+    assertEquals(await response.text(), "contents");
+  },
+});

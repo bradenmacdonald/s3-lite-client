@@ -212,6 +212,63 @@ export class Client {
     return response;
   }
 
+  /**
+   * Get an object.
+   *
+   * Returns a standard HTTP Response object, which has many ways of consuming the response including
+   * `.text()`, `.json()`, `.body` (ReadableStream), `.arrayBuffer()`, and `.blob()`.
+   */
+  public getObject(objectName: string, options?: { bucketName?: string; versionId?: string }): Promise<Response> {
+    return this.getPartialObject(objectName, { ...options, offset: 0, length: 0 });
+  }
+
+  /**
+   * Stream a partial object, starting from the specified offset in bytes, up to the specified length in bytes.
+   * A length of zero will return the rest of the object from the specified offset.
+   * Pass a version UUID as "versionId" to download a specific version.
+   *
+   * Returns a standard HTTP Response object.
+   */
+  public async getPartialObject(
+    objectName: string,
+    { offset, length, ...options }: { offset: number; length: number; bucketName?: string; versionId?: string },
+  ): Promise<Response> {
+    const bucketName = this.getBucketName(options);
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(
+        `Invalid object name: ${objectName}`,
+      );
+    }
+
+    const headers = new Headers();
+    let statusCode = 200; // Expected status code
+    if (offset || length) {
+      let range = "";
+      if (offset) {
+        range = `bytes=${+offset}-`;
+      } else {
+        range = "bytes=0-";
+        offset = 0;
+      }
+      if (length) {
+        range += `${(+length + offset) - 1}`;
+      }
+      headers.set("Range", range);
+      statusCode = 206; // HTTP 206 "Partial Content"
+    }
+
+    const query = options.versionId ? { versionId: options.versionId } : undefined;
+    return await this.makeRequest({
+      method: "GET",
+      bucketName,
+      objectName,
+      headers,
+      query,
+      statusCode,
+      returnBody: true,
+    });
+  }
+
   async putObject(
     objectName: string,
     streamOrData: ReadableStream<Uint8Array> | Uint8Array | string,

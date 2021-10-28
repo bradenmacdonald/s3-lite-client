@@ -7,8 +7,13 @@ tiny subset of that client's functionality has been implemented.
 
 Supported functionality:
 
-- Upload a file
-- Upload a file (using streams API and multi-part uploads)
+- Download an object: `client.getObject("key", options)`
+  - Supports streaming the response
+- Download a partial object: `client.getPartialObject("key", options)`
+  - Supports streaming the response
+- Upload an object: `client.putObject("key", streamOrData, options)`
+  - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
+  - Can split large uploads into multiple parts
 
 ## Usage example
 
