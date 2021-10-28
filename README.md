@@ -18,7 +18,7 @@ Supported functionality:
   - Supports streaming the response
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
-  - Can split large uploads into multiple parts
+  - Can split large uploads into multiple parts and uploads parts in parallel
 
 ## Usage example
 

@@ -28,6 +28,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
     let nextPartNumber = 1;
     let uploadId: string;
     const etags: { part: number; etag: string }[] = [];
+    const partsPromises: Promise<Response>[] = []; // If doing multi-part upload, this holds a promise for each part so we can upload them in parallel
 
     super({
       start() {}, // required
@@ -67,7 +68,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
             })).uploadId;
           }
           // Upload the next part
-          const response = await client.makeRequest({
+          const partPromise = client.makeRequest({
             method,
             query: { partNumber: partNumber.toString(), uploadId },
             headers: new Headers({ "Content-Length": String(chunk.length) }),
@@ -75,12 +76,15 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
             objectName: objectName,
             payload: chunk,
           });
-          // In order to aggregate the parts together, we need to collect the etags.
-          let etag = response.headers.get("etag") ?? "";
-          if (etag) {
-            etag = etag.replace(/^"/, "").replace(/"$/, "");
-          }
-          etags.push({ part: partNumber, etag });
+          partPromise.then((response) => {
+            // In order to aggregate the parts together, we need to collect the etags.
+            let etag = response.headers.get("etag") ?? "";
+            if (etag) {
+              etag = etag.replace(/^"/, "").replace(/"$/, "");
+            }
+            etags.push({ part: partNumber, etag });
+          });
+          partsPromises.push(partPromise);
         } catch (err) {
           // Throwing an error will make future writes to this sink fail.
           throw err;
@@ -90,6 +94,10 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
         if (result) {
           // This was already completed, in a single upload. Nothing more to do.
         } else if (uploadId) {
+          // Wait for all parts to finish uploading
+          await Promise.all(partsPromises);
+          // Sort the etags (required)
+          etags.sort((a, b) => a.part > b.part ? 1 : -1);
           // Complete the multi-part upload
           result = await completeMultipartUpload({ client, bucketName, objectName, uploadId, etags });
         } else {
