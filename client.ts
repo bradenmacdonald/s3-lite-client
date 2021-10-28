@@ -18,6 +18,10 @@ export interface ClientOptions {
   region: string;
   // transport
   // sessionToken?: string | undefined;
+  /**
+   * For large uploads, split them into parts of this size (in bytes, allowed range 5 MB to 5 GB).
+   * This is a minimum; larger part sizes may be required for large uploads or if the total size is unknown.
+   */
   partSize?: number | undefined;
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key (default: true) */
   pathStyle?: boolean | undefined;
@@ -62,6 +66,13 @@ export interface UploadedObjectInfo {
   versionId: string | null;
 }
 
+/** The minimum allowed part size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
+const minimumPartSize = 5 * 1024 * 1024;
+/** The maximum allowed part size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
+const maximumPartSize = 5 * 1024 * 1024 * 1024;
+/** The maximum allowed object size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
+const maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
+
 export class Client {
   readonly host: string;
   readonly port: number;
@@ -73,9 +84,6 @@ export class Client {
   readonly userAgent = "deno-s3-lite-client";
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key */
   readonly pathStyle: boolean;
-  readonly partSize: number;
-  readonly maximumPartSize = 5 * 1024 * 1024 * 1024;
-  readonly maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
 
   constructor(params: ClientOptions) {
     // Default values if not specified.
@@ -104,18 +112,6 @@ export class Client {
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
     this.defaultBucket = params.bucket;
     this.region = params.region;
-
-    this.partSize = params.partSize ?? 64 * 1024 * 1024;
-    if (this.partSize < 5 * 1024 * 1024) {
-      throw new errors.InvalidArgumentError(
-        `Part size should be greater than 5MB`,
-      );
-    }
-    if (this.partSize > this.maximumPartSize) {
-      throw new errors.InvalidArgumentError(
-        `Part size should be less than 5GB`,
-      );
-    }
   }
 
   protected getBucketName(options: undefined | { bucketName?: string }) {
@@ -128,12 +124,6 @@ export class Client {
     return bucketName;
   }
 
-  // makeRequest is the primitive used by the apis for making S3 requests.
-  // payload can be empty string in case of no payload.
-  // statusCode is the expected statusCode. If response.statusCode does not match
-  // we parse the XML error and call the callback with the error message.
-  // A valid region is passed by the calls - listBuckets, makeBucket and
-  // getBucketRegion.
   /**
    * Make a single request to S3
    */
@@ -229,6 +219,12 @@ export class Client {
       metaData?: ItemBucketMetadata;
       size?: number;
       bucketName?: string;
+      /**
+       * For large uploads, split them into parts of this size.
+       * Default: 64MB if object size is known, 500MB if total object size is unknown.
+       * This is a minimum; larger part sizes may be required for large uploads or if the total size is unknown.
+       */
+      partSize?: number;
     },
   ): Promise<UploadedObjectInfo> {
     const bucketName = this.getBucketName(options);
@@ -274,8 +270,12 @@ export class Client {
     }
 
     // Determine the part size, if we may need to do a multi-part upload.
-    // If we don't know the object size, assume it's the largest possible.
-    const partSize = this.calculatePartSize(size ?? this.maxObjectSize);
+    const partSize = options?.partSize ?? this.calculatePartSize(size);
+    if (partSize < minimumPartSize) {
+      throw new errors.InvalidArgumentError(`Part size should be greater than 5MB`);
+    } else if (partSize > maximumPartSize) {
+      throw new errors.InvalidArgumentError(`Part size should be less than 6MB`);
+    }
 
     // s3 requires that all non-end chunks be at least `this.partSize`,
     // so we chunk the stream until we hit either that size or the end before
@@ -296,15 +296,27 @@ export class Client {
     return uploader.getResult();
   }
 
-  /** Calculate part size given the object size. Part size will be at least this.partSize */
-  protected calculatePartSize(size: number) {
-    if (size > this.maxObjectSize) {
-      throw new TypeError(`size should not be more than ${this.maxObjectSize}`);
+  /**
+   * Calculate part size given the object size. Part size will be at least this.partSize.
+   *
+   * Per https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html we have to
+   * stick to the following rules:
+   * - part size between 5MB (this.maximumPartSize) and 5GB (this.maxObjectSize)
+   *   (the final part can be smaller than 5MB however)
+   * - maximum of 10,000 parts per upload
+   * - maximum object size of 5TB
+   */
+  protected calculatePartSize(size: number | undefined) {
+    if (size === undefined) {
+      // If we don't know the total size (e.g. we're streaming data), assume it's
+      // the largest allowed object size, so we can guarantee the upload works
+      // regardless of the total size.
+      size = maxObjectSize;
     }
-    // if (this.overRidePartSize) {
-    //   return this.partSize
-    // }
-    let partSize = this.partSize;
+    if (size > maxObjectSize) {
+      throw new TypeError(`size should not be more than ${maxObjectSize}`);
+    }
+    let partSize = 64 * 1024 * 1024; // Start with 64MB
     while (true) {
       // If partSize is big enough to accomodate the object size, then use it.
       if ((partSize * 10_000) > size) {
