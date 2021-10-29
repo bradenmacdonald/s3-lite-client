@@ -12,6 +12,8 @@ Supported functionality:
   - Supports filtering using a prefix
   - Supports [grouping using a delimiter](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html)
     (use `client.listObjectsGrouped(...)`)
+- Check if an object exists: `client.exists("key")`
+- Get metadata about an object: `client.statObject("key")`
 - Download an object: `client.getObject("key", options)`
   - Supports streaming the response
 - Download a partial object: `client.getPartialObject("key", options)`
@@ -19,6 +21,7 @@ Supported functionality:
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
   - Can split large uploads into multiple parts and uploads parts in parallel
+- Delete an object: `client.deleteObject("key")`
 
 ## Usage example
 

@@ -1,4 +1,4 @@
-import type { Client, ItemBucketMetadata, UploadedObjectInfo } from "./client.ts";
+import type { Client, ObjectMetadata, UploadedObjectInfo } from "./client.ts";
 import { getVersionId, sanitizeETag } from "./helpers.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
@@ -17,12 +17,12 @@ import { parse as parseXML } from "./xml-parser.ts";
 export class ObjectUploader extends WritableStream<Uint8Array> {
   public readonly getResult: () => UploadedObjectInfo;
 
-  constructor({ client, bucketName, objectName, partSize, metaData }: {
+  constructor({ client, bucketName, objectName, partSize, metadata }: {
     client: Client;
     bucketName: string;
     objectName: string;
     partSize: number;
-    metaData: Record<string, string>;
+    metadata: Record<string, string>;
   }) {
     let result: UploadedObjectInfo;
     let nextPartNumber = 1;
@@ -44,7 +44,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
               method,
               headers: new Headers({
                 // Set user metadata as this is not a multipart upload
-                ...metaData,
+                ...metadata,
                 "Content-Length": String(chunk.length),
               }),
               bucketName,
@@ -64,7 +64,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
               client,
               bucketName,
               objectName,
-              metaData,
+              metadata,
             })).uploadId;
           }
           // Upload the next part
@@ -120,11 +120,11 @@ async function initiateNewMultipartUpload(
     client: Client;
     bucketName: string;
     objectName: string;
-    metaData?: ItemBucketMetadata;
+    metadata?: ObjectMetadata;
   },
 ): Promise<{ uploadId: string }> {
   const method = "POST";
-  const headers = new Headers(options.metaData);
+  const headers = new Headers(options.metadata);
   const query = "uploads";
   const response = await options.client.makeRequest({
     method,

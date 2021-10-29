@@ -36,38 +36,44 @@ export interface ClientOptions {
 }
 
 /**
- * Metadata that can be set when uploading an object.
+ * Standard Metadata (headers) that can be set when uploading an object.
+ * See https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
  */
-export type ItemBucketMetadata = {
-  // See https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
-  ["Content-Type"]?: string;
-  ["Cache-Control"]?: string;
-  ["Content-Disposition"]?: string;
-  ["Content-Encoding"]?: string;
-  ["Content-Language"]?: string;
-  ["Expires"]?: string;
-  ["x-amz-acl"]?: string;
-  ["x-amz-grant-full-control"]?: string;
-  ["x-amz-grant-read"]?: string;
-  ["x-amz-grant-read-acp"]?: string;
-  ["x-amz-grant-write-acp"]?: string;
-  ["x-amz-server-side-encryption"]?: string;
-  ["x-amz-storage-class"]?: string;
-  ["x-amz-website-redirect-location"]?: string;
-  ["x-amz-server-side-encryption-customer-algorithm"]?: string;
-  ["x-amz-server-side-encryption-customer-key"]?: string;
-  ["x-amz-server-side-encryption-customer-key-MD5"]?: string;
-  ["x-amz-server-side-encryption-aws-kms-key-id"]?: string;
-  ["x-amz-server-side-encryption-context"]?: string;
-  ["x-amz-server-side-encryption-bucket-key-enabled"]?: string;
-  ["x-amz-request-payer"]?: string;
-  ["x-amz-tagging"]?: string;
-  ["x-amz-object-lock-mode"]?: string;
-  ["x-amz-object-lock-retain-until-date"]?: string;
-  ["x-amz-object-lock-legal-hold"]?: string;
-  ["x-amz-expected-bucket-owner"]?: string;
-  // Custom keys should be like "X-Amz-Meta-..."
-} & { [key: string]: string };
+const metadataKeys = [
+  "Content-Type",
+  "Cache-Control",
+  "Content-Disposition",
+  "Content-Encoding",
+  "Content-Language",
+  "Expires",
+  "x-amz-acl",
+  "x-amz-grant-full-control",
+  "x-amz-grant-read",
+  "x-amz-grant-read-acp",
+  "x-amz-grant-write-acp",
+  "x-amz-server-side-encryption",
+  "x-amz-storage-class",
+  "x-amz-website-redirect-location",
+  "x-amz-server-side-encryption-customer-algorithm",
+  "x-amz-server-side-encryption-customer-key",
+  "x-amz-server-side-encryption-customer-key-MD5",
+  "x-amz-server-side-encryption-aws-kms-key-id",
+  "x-amz-server-side-encryption-context",
+  "x-amz-server-side-encryption-bucket-key-enabled",
+  "x-amz-request-payer",
+  "x-amz-tagging",
+  "x-amz-object-lock-mode",
+  "x-amz-object-lock-retain-until-date",
+  "x-amz-object-lock-legal-hold",
+  "x-amz-expected-bucket-owner",
+] as const;
+
+/**
+ * Metadata (standard and custom) that can be set when uploading an object.
+ *
+ * Custom keys should be like "x-amz-meta-..."
+ */
+export type ObjectMetadata = { [K in typeof metadataKeys[number]]?: string } & { [key: string]: string };
 
 export interface UploadedObjectInfo {
   etag: string;
@@ -90,6 +96,12 @@ export interface S3Object {
 export interface CommonPrefix {
   type: "CommonPrefix";
   prefix: string;
+}
+
+export interface ObjectStatus extends S3Object {
+  // In addition to the data provided by "listObjects()", statObject() provides:
+  versionId: string | null;
+  metadata: ObjectMetadata;
 }
 
 /** The minimum allowed part size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
@@ -236,6 +248,51 @@ export class Client {
       await response.body?.getReader().read();
     }
     return response;
+  }
+
+  /**
+   * Delete a single object.
+   *
+   * You can also pass a versionId to delete a specific version of an object.
+   */
+  async deleteObject(
+    objectName: string,
+    options: { bucketName?: string; versionId?: string; governanceBypass?: boolean } = {},
+  ) {
+    const bucketName = this.getBucketName(options);
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+    }
+
+    const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
+    const headers = new Headers();
+    if (options.governanceBypass) {
+      headers.set("X-Amz-Bypass-Governance-Retention", "true");
+    }
+
+    await this.makeRequest({
+      method: "DELETE",
+      bucketName,
+      objectName,
+      headers,
+      query,
+      statusCode: 204,
+    });
+  }
+
+  /**
+   * Check if an object with the specified key exists.
+   */
+  public async exists(objectName: string, options?: { bucketName?: string; versionId?: string }): Promise<boolean> {
+    try {
+      await this.statObject(objectName, options);
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof errors.ServerError && err.statusCode === 404) {
+        return false;
+      }
+      throw err;
+    }
   }
 
   /**
@@ -433,7 +490,7 @@ export class Client {
     objectName: string,
     streamOrData: ReadableStream<Uint8Array> | Uint8Array | string,
     options?: {
-      metaData?: ItemBucketMetadata;
+      metadata?: ObjectMetadata;
       size?: number;
       bucketName?: string;
       /**
@@ -506,7 +563,7 @@ export class Client {
       bucketName,
       objectName,
       partSize,
-      metaData: options?.metaData ?? {},
+      metadata: options?.metadata ?? {},
     });
     // stream => chunker => uploader
     await stream.pipeThrough(chunker).pipeTo(uploader);
@@ -542,5 +599,53 @@ export class Client {
       // Try part sizes as 64MB, 80MB, 96MB etc.
       partSize += 16 * 1024 * 1024;
     }
+  }
+
+  /**
+   * Get detailed information about an object.
+   */
+  public async statObject(
+    objectName: string,
+    options?: { bucketName?: string; versionId?: string },
+  ): Promise<ObjectStatus> {
+    const bucketName = this.getBucketName(options);
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(
+        `Invalid object name: ${objectName}`,
+      );
+    }
+    const query: Record<string, string> = {};
+    if (options?.versionId) {
+      query.versionId = options.versionId;
+    }
+    const response = await this.makeRequest({
+      method: "HEAD",
+      bucketName,
+      objectName,
+      query,
+    });
+
+    const metadata: ObjectMetadata = {};
+    for (const header of metadataKeys) {
+      if (response.headers.has(header)) {
+        metadata[header] = response.headers.get(header) as string;
+      }
+    }
+    // Also add in custom metadata
+    response.headers.forEach((_value, key) => {
+      if (key.startsWith("x-amz-meta-")) {
+        metadata[key] = response.headers.get(key) as string;
+      }
+    });
+
+    return {
+      type: "Object",
+      key: objectName,
+      size: parseInt(response.headers.get("content-length") ?? "", 10),
+      metadata,
+      lastModified: new Date(response.headers.get("Last-Modified") ?? "error: missing last modified"),
+      versionId: response.headers.get("x-amz-version-id") || null,
+      etag: sanitizeETag(response.headers.get("ETag") ?? ""),
+    };
   }
 }
