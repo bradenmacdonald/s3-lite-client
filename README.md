@@ -26,7 +26,7 @@ Supported functionality:
 ## Usage example
 
 ```typescript
-import { S3Client } from "https://raw.githubusercontent.com/bradenmacdonald/deno-s3-lite-client/main/mod.ts";
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.1.1/mod.ts";
 
 // Connecting to a local MinIO server:
 const s3client = new S3Client({
