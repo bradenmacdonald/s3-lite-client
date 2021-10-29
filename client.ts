@@ -24,13 +24,6 @@ export interface ClientOptions {
   bucket?: string;
   /** Region to use, e.g. "us-east-1" */
   region: string;
-  // transport
-  // sessionToken?: string | undefined;
-  /**
-   * For large uploads, split them into parts of this size (in bytes, allowed range 5 MB to 5 GB).
-   * This is a minimum; larger part sizes may be required for large uploads or if the total size is unknown.
-   */
-  partSize?: number | undefined;
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key (default: true) */
   pathStyle?: boolean | undefined;
 }
@@ -369,7 +362,7 @@ export class Client {
        * This will not affect the shape of the result, just its efficiency.
        */
       pageSize?: number;
-    },
+    } = {},
   ): AsyncGenerator<S3Object, void, undefined> {
     for await (const result of this.listObjectsGrouped({ ...options, delimiter: "" })) {
       // Since we didn't specify a delimiter, listObjectsGrouped() should only return
