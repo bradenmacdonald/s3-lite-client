@@ -7,6 +7,7 @@ tiny subset of that client's functionality has been implemented.
 
 Supported functionality:
 
+- Authenticated or unauthenticated requests
 - List objects: `for await (const object of client.listObjects(options)) { ... }`
   - Handles pagination transparently
   - Supports filtering using a prefix
@@ -23,7 +24,28 @@ Supported functionality:
   - Can split large uploads into multiple parts and uploads parts in parallel
 - Delete an object: `client.deleteObject("key")`
 
-## Usage example
+## Usage examples
+
+List data files from a public data set on Amazon S3:
+
+```typescript
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.1.1/mod.ts";
+
+const s3client = new S3Client({
+  endPoint: "s3.amazonaws.com",
+  port: 443,
+  useSSL: true,
+  region: "us-east-1",
+  bucket: "openalex",
+  pathStyle: false,
+});
+
+for await (const obj of s3client.listObjects({ prefix: "data/concepts/" })) {
+  console.log(obj);
+}
+```
+
+Upload a file to a local MinIO server:
 
 ```typescript
 import { S3Client } from "https://deno.land/x/s3_lite_client@0.1.1/mod.ts";

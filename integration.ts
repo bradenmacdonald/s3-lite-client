@@ -23,6 +23,26 @@ const client = new S3Client(config);
 // Error parsing
 
 Deno.test({
+  name: "the API client can be used without authentication (this also tests SSL and pathStyle: false)",
+  fn: async () => {
+    const publicClient = new S3Client({
+      endPoint: "s3.amazonaws.com",
+      port: 443,
+      useSSL: true,
+      region: "us-east-1",
+      bucket: "amazon-pqa",
+      pathStyle: false,
+    });
+    const response = await publicClient.getObject("readme.txt").then((r) => r.text());
+    const expected = await fetch("https://amazon-pqa.s3.amazonaws.com/readme.txt").then((r) => r.text());
+    assertEquals(response, expected);
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Test an unauthenticated client downloading public data
+
+Deno.test({
   name: "error parsing",
   fn: async () => {
     const unauthorizedClient = new S3Client({ ...config, secretKey: "invalid key" });

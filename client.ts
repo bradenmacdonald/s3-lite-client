@@ -16,8 +16,8 @@ import { parse as parseXML } from "./xml-parser.ts";
 export interface ClientOptions {
   /** Hostname of the endpoint. Not a URL, just the hostname with no protocol or port. */
   endPoint: string;
-  accessKey: string;
-  secretKey: string;
+  accessKey?: string;
+  secretKey?: string;
   useSSL?: boolean | undefined;
   port?: number | undefined;
   /** Default bucket name, if not specified on individual requests */
@@ -108,7 +108,7 @@ export class Client {
   readonly host: string;
   readonly port: number;
   readonly protocol: "https:" | "http:";
-  readonly accessKey: string;
+  readonly accessKey?: string;
   readonly #secretKey: string;
   readonly defaultBucket: string | undefined;
   readonly region: string;
@@ -133,13 +133,16 @@ export class Client {
     if (params.port !== undefined && !isValidPort(params.port)) {
       throw new errors.InvalidArgumentError(`Invalid port : ${params.port}`);
     }
+    if (params.accessKey && !params.secretKey) {
+      throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
+    }
 
     this.port = params.port ?? (params.useSSL ? 443 : 80);
     this.host = params.endPoint.toLowerCase() +
       (params.port ? `:${params.port}` : "");
     this.protocol = params.useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
-    this.#secretKey = params.secretKey;
+    this.#secretKey = params.secretKey ?? "";
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
     this.defaultBucket = params.bucket;
     this.region = params.region;
@@ -203,18 +206,20 @@ export class Client {
     headers.set("host", host);
     headers.set("x-amz-date", makeDateLong(date));
     headers.set("x-amz-content-sha256", sha256sum);
-    headers.set(
-      "authorization",
-      await signV4({
-        headers,
-        method,
-        path,
-        accessKey: this.accessKey,
-        secretKey: this.#secretKey,
-        region: this.region,
-        date,
-      }),
-    );
+    if (this.accessKey) {
+      headers.set(
+        "authorization",
+        await signV4({
+          headers,
+          method,
+          path,
+          accessKey: this.accessKey,
+          secretKey: this.#secretKey,
+          region: this.region,
+          date,
+        }),
+      );
+    }
 
     const fullUrl = `${this.protocol}//${host}${path}`;
 
