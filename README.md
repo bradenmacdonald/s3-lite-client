@@ -79,7 +79,7 @@ deno lint && deno test
 To format the code, use:
 
 ```sh
-deno fmt --options-line-width 120
+deno fmt
 ```
 
 To run the integration tests, first start MinIO with this command:
