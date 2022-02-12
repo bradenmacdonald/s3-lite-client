@@ -20,7 +20,7 @@ const config = {
 const client = new S3Client(config);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Error parsing
+// Test an unauthenticated client downloading public data
 
 Deno.test({
   name: "the API client can be used without authentication (this also tests SSL and pathStyle: false)",
@@ -40,7 +40,7 @@ Deno.test({
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Test an unauthenticated client downloading public data
+// Error parsing
 
 Deno.test({
   name: "error parsing",
