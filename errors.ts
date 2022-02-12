@@ -40,6 +40,9 @@ export class AccessKeyRequiredError extends DenoS3LiteClientError {}
 /** The request cannot be made without a secret key to authenticate it */
 export class SecretKeyRequiredError extends DenoS3LiteClientError {}
 
+/** The expiration time for the request is invalid */
+export class InvalidExpiryError extends DenoS3LiteClientError {}
+
 /** Any error thrown by the server */
 export class ServerError extends DenoS3LiteClientError {
   readonly statusCode: number;

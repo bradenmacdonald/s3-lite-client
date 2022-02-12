@@ -1,6 +1,6 @@
 import { assertEquals } from "./deps-tests.ts";
 import { bin2hex } from "./helpers.ts";
-import { _internalMethods as methods, signV4 } from "./signing.ts";
+import { _internalMethods as methods, presignV4, signV4 } from "./signing.ts";
 
 const {
   getHeadersToSign,
@@ -55,6 +55,29 @@ Deno.test({
     assertEquals(
       authHeaderActual,
       "AWS4-HMAC-SHA256 Credential=accesskey123/20200513/test-region/s3/aws4_request, SignedHeaders=cache-control;content-disposition;host;x-amz-content-sha256;x-amz-storage-class, Signature=0fcf3962ff9c6ddcfd31d7cdfb42cd70e187790a16fba5402854417a1ac83ba5",
+    );
+  },
+});
+
+Deno.test({
+  name: "presignV4 - test 1",
+  fn: async () => {
+    const urlActual = await presignV4({
+      protocol: "https:",
+      method: "POST",
+      path: "/bucket/object",
+      headers: new Headers({
+        host: "localhost:9000",
+      }),
+      accessKey: "AKIA_TEST_ACCESS_KEY",
+      secretKey: "ThisIsTheSecret",
+      region: "ca-central-1",
+      date: new Date("2021-10-26T18:07:28.492Z"),
+      expirySeconds: 60 * 60,
+    });
+    assertEquals(
+      urlActual,
+      "https://localhost:9000/bucket/object?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA_TEST_ACCESS_KEY%2F20211026%2Fca-central-1%2Fs3%2Faws4_request&X-Amz-Date=20211026T180728Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=def1ddcb522798495b6b72970222eceef7d6070f131d12d819b81fb308503dfe",
     );
   },
 });

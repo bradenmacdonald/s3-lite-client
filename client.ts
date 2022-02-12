@@ -10,7 +10,7 @@ import {
   sha256digestHex,
 } from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
-import { signV4 } from "./signing.ts";
+import { presignV4, signV4 } from "./signing.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
@@ -67,6 +67,21 @@ const metadataKeys = [
  * Custom keys should be like "x-amz-meta-..."
  */
 export type ObjectMetadata = { [K in typeof metadataKeys[number]]?: string } & { [key: string]: string };
+
+/** Response Header Overrides
+ * These parameters can be used with an authenticated or presigned get object request, to
+ * override certain headers that will be sent with the response. These cannot be used with
+ * anonymous requests (although some servers like MinIO do seem to allow it).
+ * See https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html
+ */
+export interface ResponseOverrideParams {
+  "response-content-type"?: string;
+  "response-content-language"?: string;
+  "response-expires"?: string;
+  "response-cache-control"?: string;
+  "response-content-disposition"?: string;
+  "response-content-encoding"?: string;
+}
 
 export interface UploadedObjectInfo {
   etag: string;
@@ -159,6 +174,32 @@ export class Client {
   }
 
   /**
+   * Common code used for both "normal" requests and presigned UTL requests
+   * @param param0
+   */
+  private buildRequestOptions(options: {
+    objectName: string;
+    bucketName?: string;
+    headers?: Headers;
+    query?: string | Record<string, string>;
+  }): {
+    headers: Headers;
+    host: string;
+    path: string;
+  } {
+    const bucketName = this.getBucketName(options);
+    const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
+    const headers = options.headers ?? new Headers();
+    headers.set("host", host);
+    const queryAsString = typeof options.query === "object"
+      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
+      : (options.query);
+    const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
+      (queryAsString ? `?${queryAsString}` : "");
+    return { headers, host, path };
+  }
+
+  /**
    * Make a single request to S3
    */
   public async makeRequest({ method, payload, ...options }: {
@@ -180,14 +221,7 @@ export class Client {
     returnBody?: boolean;
   }): Promise<Response> {
     const date = new Date();
-    const bucketName = this.getBucketName(options);
-    const headers = options.headers ?? new Headers();
-    const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
-    const queryAsString = typeof options.query === "object"
-      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
-      : (options.query);
-    const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
-      (queryAsString ? `?${queryAsString}` : "");
+    const { headers, host, path } = this.buildRequestOptions(options);
     const statusCode = options.statusCode ?? 200;
 
     if (
@@ -203,7 +237,6 @@ export class Client {
       throw new Error(`Unexpected payload on ${method} request.`);
     }
     const sha256sum = await sha256digestHex(payload ?? new Uint8Array());
-    headers.set("host", host);
     headers.set("x-amz-date", makeDateLong(date));
     headers.set("x-amz-content-sha256", sha256sum);
     if (this.accessKey) {
@@ -299,7 +332,10 @@ export class Client {
    * Returns a standard HTTP Response object, which has many ways of consuming the response including
    * `.text()`, `.json()`, `.body` (ReadableStream), `.arrayBuffer()`, and `.blob()`.
    */
-  public getObject(objectName: string, options?: { bucketName?: string; versionId?: string }): Promise<Response> {
+  public getObject(
+    objectName: string,
+    options?: { bucketName?: string; versionId?: string; responseParams?: ResponseOverrideParams },
+  ): Promise<Response> {
     return this.getPartialObject(objectName, { ...options, offset: 0, length: 0 });
   }
 
@@ -312,7 +348,13 @@ export class Client {
    */
   public async getPartialObject(
     objectName: string,
-    { offset, length, ...options }: { offset: number; length: number; bucketName?: string; versionId?: string },
+    { offset, length, ...options }: {
+      offset: number;
+      length: number;
+      bucketName?: string;
+      versionId?: string;
+      responseParams?: ResponseOverrideParams;
+    },
   ): Promise<Response> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
@@ -338,7 +380,11 @@ export class Client {
       statusCode = 206; // HTTP 206 "Partial Content"
     }
 
-    const query = options.versionId ? { versionId: options.versionId } : undefined;
+    // Create query string options
+    const query: Record<string, string> = {
+      ...options.responseParams,
+      ...(options.versionId ? { versionId: options.versionId } : {}),
+    };
     return await this.makeRequest({
       method: "GET",
       bucketName,
@@ -348,6 +394,70 @@ export class Client {
       statusCode,
       returnBody: true,
     });
+  }
+
+  /**
+   * Low-level method to generate a pre-signed URL.
+   * @param method The HTTP method to use for the request
+   * @param objectName The object name, e.g. "path/to/file.txt"
+   * @param options Detailed options, such as expiry time for the pre-signed URL. Use expirySeconds to specify the expiry time; default is seven days.
+   */
+  getPresignedUrl(
+    method: "GET" | "PUT" | "HEAD" | "DELETE",
+    objectName: string,
+    options: { bucketName?: string; parameters?: Record<string, string>; expirySeconds?: number; requestDate?: Date } =
+      {},
+  ): Promise<string> {
+    if (!this.accessKey) {
+      throw new errors.AccessKeyRequiredError(
+        `Presigned ${method} URLs cannot be generated for anonymous requests. Specify an accessKey and secretKey.`,
+      );
+    }
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+    }
+    const { headers, path } = this.buildRequestOptions({
+      objectName,
+      bucketName: options.bucketName,
+      query: options.parameters,
+    });
+    const requestDate = options.requestDate ?? new Date();
+    const expirySeconds = options.expirySeconds ?? 24 * 60 * 60 * 7; // default expiration is 7 days in seconds.
+
+    return presignV4({
+      protocol: this.protocol,
+      headers,
+      method,
+      path,
+      accessKey: this.accessKey,
+      secretKey: this.#secretKey,
+      region: this.region,
+      date: requestDate,
+      expirySeconds,
+    });
+  }
+
+  /**
+   * Generate a pre-signed GET request URL.
+   *
+   * Use options.expirySeconds to override the expiration time (default is 7 days)
+   */
+  presignedGetObject(
+    objectName: string,
+    options: {
+      bucketName?: string;
+      versionId?: string;
+      responseParams?: ResponseOverrideParams;
+      expirySeconds?: number;
+      requestDate?: Date;
+    } = {},
+  ) {
+    const { versionId, responseParams, ...otherOptions } = options;
+    const parameters: Record<string, string> = {
+      ...responseParams,
+      ...(versionId ? { versionId } : {}),
+    };
+    return this.getPresignedUrl("GET", objectName, { parameters, ...otherOptions });
   }
 
   /**

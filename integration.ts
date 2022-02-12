@@ -195,6 +195,25 @@ Deno.test({
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// presignedGetObject()
+
+Deno.test({
+  name: "presignedGetObject() can create a pre-signed URL to download a file.",
+  fn: async () => {
+    const contents = "This is the contents of the file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
+    await client.putObject("test-presigned.cstm", contents);
+    const presignedUrl = await client.presignedGetObject("test-presigned.cstm", {
+      // Also try overriding a response parameter
+      responseParams: { "response-content-type": "custom/content-type" },
+    });
+    // Now use the pre-signed URL to download the file
+    const response = await fetch(presignedUrl);
+    assertEquals(await response.text(), contents);
+    assertEquals(await response.headers.get("Content-Type"), "custom/content-type");
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // listObjects()
 
 Deno.test({

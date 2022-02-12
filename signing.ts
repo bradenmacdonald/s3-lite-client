@@ -14,16 +14,12 @@ export async function signV4(request: {
   secretKey: string;
   region: string;
   date: Date;
-}) {
+}): Promise<string> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError(
-      "accessKey is required for signing",
-    );
+    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError(
-      "secretKey is required for signing",
-    );
+    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
   }
 
   const sha256sum = request.headers.get("x-amz-content-sha256");
@@ -62,6 +58,61 @@ export async function signV4(request: {
   return `${signV4Algorithm} Credential=${credential}, SignedHeaders=${
     signedHeaders.join(";").toLowerCase()
   }, Signature=${signature}`;
+}
+
+/**
+ * Generate a pre-signed URL
+ */
+export async function presignV4(request: {
+  protocol: "http:" | "https:";
+  headers: Headers;
+  method: string;
+  path: string;
+  accessKey: string;
+  secretKey: string;
+  region: string;
+  date: Date;
+  expirySeconds: number;
+}): Promise<string> {
+  if (!request.accessKey) {
+    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+  }
+  if (!request.secretKey) {
+    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+  }
+  if (request.expirySeconds < 1) {
+    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
+  }
+  if (request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  }
+  if (!request.headers.has("Host")) {
+    throw new Error("Internal error: host header missing");
+  }
+
+  // Information about the future request that we're going to sign:
+  const resource = request.path.split("?")[0];
+  const queryString = request.path.split("?")[1];
+  const iso8601Date = makeDateLong(request.date);
+  const signedHeaders = getHeadersToSign(request.headers);
+  const credential = getCredential(request.accessKey, request.region, request.date);
+  const hashedPayload = "UNSIGNED-PAYLOAD";
+
+  // Build the query string for our new signed URL:
+  const newQuery = new URLSearchParams(queryString);
+  newQuery.set("X-Amz-Algorithm", signV4Algorithm);
+  newQuery.set("X-Amz-Credential", credential);
+  newQuery.set("X-Amz-Date", iso8601Date);
+  newQuery.set("X-Amz-Expires", request.expirySeconds.toString());
+  newQuery.set("X-Amz-SignedHeaders", signedHeaders.join(";").toLowerCase());
+  const newPath = resource + "?" + newQuery.toString().replace("+", "%20"); // Signing requires spaces become %20, never +
+
+  const canonicalRequest = getCanonicalRequest(request.method, newPath, request.headers, signedHeaders, hashedPayload);
+  const stringToSign = await getStringToSign(canonicalRequest, request.date, request.region);
+  const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
+  const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
+  const presignedUrl = `${request.protocol}//${request.headers.get("Host")}${newPath}&X-Amz-Signature=${signature}`;
+  return presignedUrl;
 }
 
 /**

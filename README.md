@@ -23,6 +23,8 @@ Supported functionality:
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
   - Can split large uploads into multiple parts and uploads parts in parallel
 - Delete an object: `client.deleteObject("key")`
+- Create pre-signed URLs: `client.presignedGetObject("key", options)` or
+  `client.getPresignedUrl(method, "key", options)`
 
 ## Usage examples
 
