@@ -4,7 +4,7 @@
  * See the README for instructions.
  */
 import { readableStreamFromIterable } from "./deps.ts";
-import { assert, assertEquals, assertRejects } from "./deps-tests.ts";
+import { assert, assertEquals, assertInstanceOf, assertRejects } from "./deps-tests.ts";
 import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
@@ -46,20 +46,18 @@ Deno.test({
   name: "error parsing",
   fn: async () => {
     const unauthorizedClient = new S3Client({ ...config, secretKey: "invalid key" });
-    await assertRejects(
+    const err = await assertRejects(
       () => unauthorizedClient.putObject("test.txt", "This is the contents of the file."),
-      (err: Error) => {
-        assert(err instanceof S3Errors.ServerError);
-        assertEquals(err.statusCode, 403);
-        assertEquals(err.code, "SignatureDoesNotMatch");
-        assertEquals(
-          err.message,
-          "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
-        );
-        assertEquals(err.bucketName, config.bucket);
-        assertEquals(err.region, config.region);
-      },
     );
+    assertInstanceOf(err, S3Errors.ServerError);
+    assertEquals(err.statusCode, 403);
+    assertEquals(err.code, "SignatureDoesNotMatch");
+    assertEquals(
+      err.message,
+      "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
+    );
+    assertEquals(err.bucketName, config.bucket);
+    assertEquals(err.region, config.region);
   },
 });
 
@@ -164,7 +162,7 @@ Deno.test({
     const stat = await client.statObject(key);
     assertEquals(stat.type, "Object");
     assertEquals(stat.key, key);
-    assert(stat.lastModified instanceof Date);
+    assertInstanceOf(stat.lastModified, Date);
     assertEquals(stat.lastModified.getFullYear(), new Date().getFullYear()); // This may fail at exactly midnight on New Year's, no big deal
     assertEquals(stat.size, new TextEncoder().encode(contents).length); // Size in bytes is different from the length of the string
     assertEquals(stat.versionId, null);
