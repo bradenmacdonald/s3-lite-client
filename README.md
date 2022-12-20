@@ -23,7 +23,9 @@ Supported functionality:
   - Like `getObject`, this also supports streaming the response if you want to.
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
-  - Can split large uploads into multiple parts and uploads parts in parallel
+  - Can split large uploads into multiple parts and uploads parts in parallel.
+- Copy an object: `client.copyObject({ sourceKey: "source", options }, "dest", options)`
+  - Can copy between different buckets.
 - Delete an object: `client.deleteObject("key")`
 - Create pre-signed URLs: `client.presignedGetObject("key", options)` or
   `client.getPresignedUrl(method, "key", options)`

@@ -88,6 +88,11 @@ export interface UploadedObjectInfo {
   versionId: string | null;
 }
 
+export interface CopiedObjectInfo extends UploadedObjectInfo {
+  lastModified: Date;
+  copySourceVersionId: string | null;
+}
+
 /** Details about an object as returned by a "list objects" operation */
 export interface S3Object {
   type: "Object";
@@ -754,6 +759,54 @@ export class Client {
       lastModified: new Date(response.headers.get("Last-Modified") ?? "error: missing last modified"),
       versionId: response.headers.get("x-amz-version-id") || null,
       etag: sanitizeETag(response.headers.get("ETag") ?? ""),
+    };
+  }
+
+  /**
+   * Copy an object into this bucket
+   */
+  public async copyObject(
+    source: { sourceBucketName?: string; sourceKey: string; sourceVersionId?: string },
+    objectName: string,
+    options?: { bucketName?: string },
+  ): Promise<CopiedObjectInfo> {
+    const bucketName = this.getBucketName(options);
+    const sourceBucketName = source.sourceBucketName ?? bucketName;
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+    }
+
+    // The "x-amz-copy-source" header is like "bucket/objectkey" with an optional version ID.
+    // e.g. "awsexamplebucket/reports/january.pdf?versionId=QUpfdndhfd8438MNFDN93jdnJFkdmqnh893"
+    let xAmzCopySource = `${sourceBucketName}/${source.sourceKey}`;
+    if (source.sourceVersionId) xAmzCopySource += `?versionId=${source.sourceVersionId}`;
+
+    const response = await this.makeRequest({
+      method: "PUT",
+      bucketName,
+      objectName,
+      headers: new Headers({ "x-amz-copy-source": xAmzCopySource }),
+      returnBody: true,
+    });
+
+    const responseText = await response.text();
+    // Parse the response XML.
+    // See https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html#API_CopyObject_ResponseSyntax
+    const root = parseXML(responseText).root;
+    if (!root || root.name !== "CopyObjectResult") {
+      throw new Error(`Unexpected response: ${responseText}`);
+    }
+    const etagString = root.children.find((c) => c.name === "ETag")?.content ?? "";
+    const lastModifiedString = root.children.find((c) => c.name === "LastModified")?.content;
+    if (lastModifiedString === undefined) {
+      throw new Error("Unable to find <LastModified>...</LastModified> from the server.");
+    }
+
+    return {
+      copySourceVersionId: response.headers.get("x-amz-copy-source-version-id") || null,
+      etag: sanitizeETag(etagString),
+      lastModified: new Date(lastModifiedString),
+      versionId: response.headers.get("x-amz-version-id") || null,
     };
   }
 }

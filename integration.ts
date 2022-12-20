@@ -315,3 +315,45 @@ Deno.test({
     assertEquals(results[4].key, `${prefix}x-file.txt`);
   },
 });
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// copyObject()
+
+Deno.test({
+  name: "copyObject() can copy a file",
+  fn: async () => {
+    const contents = "This is the contents of the copy test file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
+    const sourceKey = "test-copy-source.txt";
+    const destKey = "test-copy-dest.txt";
+
+    // Create the source file:
+    const uploadResult = await client.putObject(sourceKey, contents);
+    // Make sure the destination doesn't yet exist:
+    await client.deleteObject(destKey);
+    assertEquals(await client.exists(destKey), false);
+
+    const response = await client.copyObject({ sourceKey }, destKey);
+    assertEquals(uploadResult.etag, response.etag);
+    assertEquals(uploadResult.versionId, response.copySourceVersionId);
+    assertInstanceOf(response.lastModified, Date);
+
+    // Download the file to confirm that the copy worked.
+    const downloadResult = await client.getObject(destKey);
+    assertEquals(await downloadResult.text(), contents);
+  },
+});
+
+Deno.test({
+  name: "copyObject() gives an appropriate error if the source file doesn't exist.",
+  fn: async () => {
+    const sourceKey = "non-existent-source";
+    const err = await assertRejects(
+      () => client.copyObject({ sourceKey }, "any-dest.txt"),
+    );
+    assertInstanceOf(err, S3Errors.ServerError);
+    assertEquals(err.code, "NoSuchKey");
+    assertEquals(err.statusCode, 404);
+    assertEquals(err.key, sourceKey);
+    assertEquals(err.message, "The specified key does not exist.");
+  },
+});
