@@ -4,7 +4,7 @@
  * See the README for instructions.
  */
 import { readableStreamFromIterable } from "./deps.ts";
-import { assert, assertEquals, assertRejects } from "./deps-tests.ts";
+import { assert, assertEquals, assertInstanceOf, assertRejects } from "./deps-tests.ts";
 import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
@@ -46,20 +46,18 @@ Deno.test({
   name: "error parsing",
   fn: async () => {
     const unauthorizedClient = new S3Client({ ...config, secretKey: "invalid key" });
-    await assertRejects(
+    const err = await assertRejects(
       () => unauthorizedClient.putObject("test.txt", "This is the contents of the file."),
-      (err: Error) => {
-        assert(err instanceof S3Errors.ServerError);
-        assertEquals(err.statusCode, 403);
-        assertEquals(err.code, "SignatureDoesNotMatch");
-        assertEquals(
-          err.message,
-          "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
-        );
-        assertEquals(err.bucketName, config.bucket);
-        assertEquals(err.region, config.region);
-      },
     );
+    assertInstanceOf(err, S3Errors.ServerError);
+    assertEquals(err.statusCode, 403);
+    assertEquals(err.code, "SignatureDoesNotMatch");
+    assertEquals(
+      err.message,
+      "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
+    );
+    assertEquals(err.bucketName, config.bucket);
+    assertEquals(err.region, config.region);
   },
 });
 
@@ -164,7 +162,7 @@ Deno.test({
     const stat = await client.statObject(key);
     assertEquals(stat.type, "Object");
     assertEquals(stat.key, key);
-    assert(stat.lastModified instanceof Date);
+    assertInstanceOf(stat.lastModified, Date);
     assertEquals(stat.lastModified.getFullYear(), new Date().getFullYear()); // This may fail at exactly midnight on New Year's, no big deal
     assertEquals(stat.size, new TextEncoder().encode(contents).length); // Size in bytes is different from the length of the string
     assertEquals(stat.versionId, null);
@@ -315,5 +313,47 @@ Deno.test({
     assertEquals(results[3].prefix, `${prefix}subpath-2/`);
     assert(results[4].type === "Object");
     assertEquals(results[4].key, `${prefix}x-file.txt`);
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// copyObject()
+
+Deno.test({
+  name: "copyObject() can copy a file",
+  fn: async () => {
+    const contents = "This is the contents of the copy test file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
+    const sourceKey = "test-copy-source.txt";
+    const destKey = "test-copy-dest.txt";
+
+    // Create the source file:
+    const uploadResult = await client.putObject(sourceKey, contents);
+    // Make sure the destination doesn't yet exist:
+    await client.deleteObject(destKey);
+    assertEquals(await client.exists(destKey), false);
+
+    const response = await client.copyObject({ sourceKey }, destKey);
+    assertEquals(uploadResult.etag, response.etag);
+    assertEquals(uploadResult.versionId, response.copySourceVersionId);
+    assertInstanceOf(response.lastModified, Date);
+
+    // Download the file to confirm that the copy worked.
+    const downloadResult = await client.getObject(destKey);
+    assertEquals(await downloadResult.text(), contents);
+  },
+});
+
+Deno.test({
+  name: "copyObject() gives an appropriate error if the source file doesn't exist.",
+  fn: async () => {
+    const sourceKey = "non-existent-source";
+    const err = await assertRejects(
+      () => client.copyObject({ sourceKey }, "any-dest.txt"),
+    );
+    assertInstanceOf(err, S3Errors.ServerError);
+    assertEquals(err.code, "NoSuchKey");
+    assertEquals(err.statusCode, 404);
+    assertEquals(err.key, sourceKey);
+    assertEquals(err.message, "The specified key does not exist.");
   },
 });

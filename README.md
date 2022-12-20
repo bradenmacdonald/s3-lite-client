@@ -1,9 +1,10 @@
 # deno-s3-lite-client
 
-A very lightweight S3 client for Deno. Has no dependencies outside of the Deno standard library. MIT licensed.
+This is a lightweight S3 client for Deno, designed to offer all the key features you may need, with no dependencies
+outside of the Deno standard library.
 
-It is derived from the excellent [MinIO JavaScript Client](https://github.com/minio/minio-js). Note however that only a
-tiny subset of that client's functionality has been implemented.
+This client is 100% MIT licensed, and is derived from the excellent
+[MinIO JavaScript Client](https://github.com/minio/minio-js).
 
 Supported functionality:
 
@@ -16,12 +17,15 @@ Supported functionality:
 - Check if an object exists: `client.exists("key")`
 - Get metadata about an object: `client.statObject("key")`
 - Download an object: `client.getObject("key", options)`
-  - Supports streaming the response
+  - This just returns a standard HTTP `Response` object, so for large files, you can opt to consume the data as a stream
+    (use the `.body` property).
 - Download a partial object: `client.getPartialObject("key", options)`
-  - Supports streaming the response
+  - Like `getObject`, this also supports streaming the response if you want to.
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
-  - Can split large uploads into multiple parts and uploads parts in parallel
+  - Can split large uploads into multiple parts and uploads parts in parallel.
+- Copy an object: `client.copyObject({ sourceKey: "source", options }, "dest", options)`
+  - Can copy between different buckets.
 - Delete an object: `client.deleteObject("key")`
 - Create pre-signed URLs: `client.presignedGetObject("key", options)` or
   `client.getPresignedUrl(method, "key", options)`
@@ -31,7 +35,7 @@ Supported functionality:
 List data files from a public data set on Amazon S3:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.2.0/mod.ts";
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.3.0/mod.ts";
 
 const s3client = new S3Client({
   endPoint: "s3.amazonaws.com",
@@ -50,7 +54,7 @@ for await (const obj of s3client.listObjects({ prefix: "data/concepts/" })) {
 Upload a file to a local MinIO server:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.2.0/mod.ts";
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.3.0/mod.ts";
 
 // Connecting to a local MinIO server:
 const s3client = new S3Client({
