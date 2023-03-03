@@ -157,9 +157,9 @@ export class Client {
       throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
     }
 
-    this.port = params.port ?? (params.useSSL ? 443 : 80);
-    this.host = params.endPoint.toLowerCase() +
-      (params.port ? `:${params.port}` : "");
+    const defaultPort = params.useSSL ? 443 : 80;
+    this.port = params.port ?? defaultPort;
+    this.host = params.endPoint.toLowerCase() + (this.port !== defaultPort ? `:${params.port}` : "");
     this.protocol = params.useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
