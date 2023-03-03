@@ -157,9 +157,9 @@ export class Client {
       throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
     }
 
-    this.port = params.port ?? (params.useSSL ? 443 : 80);
-    this.host = params.endPoint.toLowerCase() +
-      (params.port ? `:${params.port}` : "");
+    const defaultPort = params.useSSL ? 443 : 80;
+    this.port = params.port ?? defaultPort;
+    this.host = params.endPoint.toLowerCase() + (this.port !== defaultPort ? `:${params.port}` : "");
     this.protocol = params.useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
@@ -271,13 +271,20 @@ export class Client {
       if (response.status >= 400) {
         const error = await errors.parseServerError(response);
         throw error;
-      } else {
+      } else if (response.status === 301) {
+        // Unfortunately we are not allowed to access the Location header to know what the new location is.
         throw new errors.ServerError(
           response.status,
-          "UnexpectedStatusCode",
-          `Unexpected response code from the server (expected ${statusCode}, got ${response.status} ${response.statusText}).`,
+          "UnexpectedRedirect",
+          `The server unexpectedly returned a redirect response. With AWS S3, this usually means you need to use a ` +
+            `region-specific endpoint like "s3.us-west-2.amazonaws.com" instead of "s3.amazonaws.com"`,
         );
       }
+      throw new errors.ServerError(
+        response.status,
+        "UnexpectedStatusCode",
+        `Unexpected response code from the server (expected ${statusCode}, got ${response.status} ${response.statusText}).`,
+      );
     }
     if (!options.returnBody) {
       // Just read the body and ignore its contents, to avoid leaking resources.

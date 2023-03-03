@@ -38,7 +38,7 @@ List data files from a public data set on Amazon S3:
 import { S3Client } from "https://deno.land/x/s3_lite_client@0.3.0/mod.ts";
 
 const s3client = new S3Client({
-  endPoint: "s3.amazonaws.com",
+  endPoint: "s3.us-east-1.amazonaws.com",
   port: 443,
   useSSL: true,
   region: "us-east-1",
