@@ -158,6 +158,9 @@ export class Client {
     if (params.accessKey && !params.secretKey) {
       throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
     }
+    if (params.accessKey && params.accessKey.startsWith("ASIA") && !params.sessionToken) {
+      throw new errors.InvalidArgumentError(`If specifying temporary access key, session token must also be provided.`);
+    }
 
     const defaultPort = params.useSSL ? 443 : 80;
     this.port = params.port ?? defaultPort;
