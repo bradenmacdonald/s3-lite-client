@@ -18,6 +18,7 @@ export interface ClientOptions {
   endPoint: string;
   accessKey?: string;
   secretKey?: string;
+  sessionToken?: string;
   useSSL?: boolean | undefined;
   port?: number | undefined;
   /** Default bucket name, if not specified on individual requests */
@@ -130,6 +131,7 @@ export class Client {
   readonly protocol: "https:" | "http:";
   readonly accessKey?: string;
   readonly #secretKey: string;
+  readonly sessionToken?: string;
   readonly defaultBucket: string | undefined;
   readonly region: string;
   readonly userAgent = "deno-s3-lite-client";
@@ -163,6 +165,7 @@ export class Client {
     this.protocol = params.useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
+    this.sessionToken = params.sessionToken;
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
     this.defaultBucket = params.bucket;
     this.region = params.region;
@@ -245,6 +248,9 @@ export class Client {
     headers.set("x-amz-date", makeDateLong(date));
     headers.set("x-amz-content-sha256", sha256sum);
     if (this.accessKey) {
+      if (this.sessionToken) {
+        headers.set("x-amz-security-token", this.sessionToken);
+      }
       headers.set(
         "authorization",
         await signV4({
