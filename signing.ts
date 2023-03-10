@@ -203,7 +203,7 @@ function getCanonicalRequest(
 
   const canonical = [];
   canonical.push(method.toUpperCase());
-  canonical.push(requestResource);
+  canonical.push(encodeURI(requestResource));
   canonical.push(requestQuery);
   canonical.push(headersArray.join("\n") + "\n");
   canonical.push(headersToSign.join(";").toLowerCase());

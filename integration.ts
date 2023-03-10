@@ -193,6 +193,20 @@ Deno.test({
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// non-ascii characters in URLs
+
+Deno.test({
+  name: "getObject()/putObject work with non-ASCII characters in URLs",
+  fn: async () => {
+    const path = "файл/gemütlich.txt";
+    const contents = `This is the contents of the file called '${path}'.`;
+    await client.putObject(path, contents);
+    const response = await client.getObject(path);
+    assertEquals(await response.text(), contents);
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // presignedGetObject()
 
 Deno.test({
