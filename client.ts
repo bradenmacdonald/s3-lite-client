@@ -663,7 +663,7 @@ export class Client {
           `size was specified (${options.size}) but doesn't match auto-detected size (${size}).`,
         );
       }
-      if (typeof size !== "number" || size < 0 || isNaN(size)) {
+      if (typeof options.size !== "number" || options.size < 0 || isNaN(options.size)) {
         throw new errors.InvalidArgumentError(
           `invalid size specified: ${options.size}`,
         );
