@@ -231,7 +231,7 @@ export class Client {
      */
     returnBody?: boolean;
   }): Promise<Response> {
-    payload = payload instanceof Uint8Array ? new Uint8Array(payload) : payload; 
+    payload = payload instanceof Uint8Array ? new Uint8Array(payload) : payload;
     const date = new Date();
     const { headers, host, path } = this.buildRequestOptions(options);
     const statusCode = options.statusCode ?? 200;
