@@ -206,14 +206,10 @@ export class Client {
     const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
     const headers = options.headers ?? new Headers();
     headers.set("host", host);
-    const queryAsString =
-      typeof options.query === "object"
-        ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
-        : options.query;
-    const path =
-      (this.pathStyle
-        ? `/${bucketName}/${objectName}`
-        : `/${objectName}`) +
+    const queryAsString = typeof options.query === "object"
+      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
+      : (options.query);
+    const path = (this.pathStyle ? `/${bucketName}/${objectName}` : `/${objectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
     return { headers, host, path };
   }
