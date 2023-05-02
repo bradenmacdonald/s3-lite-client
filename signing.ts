@@ -189,14 +189,13 @@ function getCanonicalRequest(
     return acc;
   }, []);
 
-  const lastQuestionMarkIndex = path.lastIndexOf("?");
-  const requestResource = lastQuestionMarkIndex !== -1 ? path.slice(0, lastQuestionMarkIndex) : path;
-  let requestQuery = lastQuestionMarkIndex !== -1 ? path.slice(lastQuestionMarkIndex + 1) : undefined;
+  const requestResource = path.split("?")[0];
+  let requestQuery = path.split("?")[1];
   if (requestQuery) {
     requestQuery = requestQuery
       .split("&")
       .sort()
-      .map((element) => (element.indexOf("=") === -1 ? element + "=" : element))
+      .map((element) => element.indexOf("=") === -1 ? element + "=" : element)
       .join("&");
   } else {
     requestQuery = "";
@@ -204,13 +203,7 @@ function getCanonicalRequest(
 
   const canonical = [];
   canonical.push(method.toUpperCase());
-
-  canonical.push(
-    requestResource
-      .split("/")
-      .map((v) => encodeURIComponent(v).replaceAll("(", "%28").replaceAll(")", "%29"))
-      .join("/"),
-  );
+  canonical.push(requestResource);
   canonical.push(requestQuery);
   canonical.push(headersArray.join("\n") + "\n");
   canonical.push(headersToSign.join(";").toLowerCase());
