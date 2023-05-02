@@ -198,14 +198,22 @@ export class Client {
     host: string;
     path: string;
   } {
+    const objectName = options.objectName
+      .split("/")
+      .map((v) => encodeURIComponent(v).replaceAll("(", "%28").replaceAll(")", "%29"))
+      .join("/");
     const bucketName = this.getBucketName(options);
     const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
     const headers = options.headers ?? new Headers();
     headers.set("host", host);
-    const queryAsString = typeof options.query === "object"
-      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
-      : (options.query);
-    const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
+    const queryAsString =
+      typeof options.query === "object"
+        ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
+        : options.query;
+    const path =
+      (this.pathStyle
+        ? `/${bucketName}/${objectName}`
+        : `/${objectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
     return { headers, host, path };
   }
