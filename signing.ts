@@ -208,10 +208,8 @@ function getCanonicalRequest(
   canonical.push(
     requestResource
       .split("/")
-      .map((v) =>
-        encodeURIComponent(v).replaceAll("(", "%28").replaceAll(")", "%29")
-      )
-      .join("/")
+      .map((v) => encodeURIComponent(v).replaceAll("(", "%28").replaceAll(")", "%29"))
+      .join("/"),
   );
   canonical.push(requestQuery);
   canonical.push(headersArray.join("\n") + "\n");
