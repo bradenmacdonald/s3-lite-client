@@ -190,8 +190,8 @@ function getCanonicalRequest(
   }, []);
 
   const lastQuestionMarkIndex = path.lastIndexOf("?");
-  const requestResource = path.slice(0, lastQuestionMarkIndex);
-  let requestQuery = path.slice(lastQuestionMarkIndex + 1);
+  const requestResource = lastQuestionMarkIndex !== -1 ? path.slice(0, lastQuestionMarkIndex) : path;
+  let requestQuery = lastQuestionMarkIndex !== -1 ? path.slice(lastQuestionMarkIndex + 1) : undefined;
   if (requestQuery) {
     requestQuery = requestQuery
       .split("&")
