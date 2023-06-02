@@ -10,15 +10,13 @@ export class TransformChunkSizes extends TransformStream<Uint8Array, Uint8Array>
     const buffer = new Buffer();
     buffer.grow(outChunkSize);
 
-    // This is a chunk-sized buffer that gets re-used each time we pass a new chunk out of this transform stream.
-    const outChunk = new Uint8Array(outChunkSize);
-
     super({
       start() {}, // required
       async transform(chunk, controller) {
         buffer.write(chunk);
 
         while (buffer.length >= outChunkSize) {
+          const outChunk = new Uint8Array(outChunkSize);
           const readFromBuffer = await buffer.read(outChunk);
           if (readFromBuffer !== outChunkSize) {
             throw new Error(
