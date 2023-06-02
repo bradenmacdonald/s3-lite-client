@@ -1,8 +1,6 @@
 {
   "fmt": {
-    "options": {
-      "lineWidth": 120
-    }
+    "lineWidth": 120
   },
   "lock": false
 }
