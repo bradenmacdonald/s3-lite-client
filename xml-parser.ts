@@ -122,7 +122,7 @@ export function parse(xml: string): Document {
    */
   function content() {
     const m = match(/^([^<]*)/);
-    if (m) return m[1];
+    if (m) return entities(m[1]);
     return "";
   }
 
@@ -132,7 +132,7 @@ export function parse(xml: string): Document {
   function attribute() {
     const m = match(/([\w:-]+)\s*=\s*("[^"]*"|'[^']*'|\w+)\s*/);
     if (!m) return;
-    return { name: m[1], value: strip(m[2]) };
+    return { name: m[1], value: entities(strip(m[2])) };
   }
 
   /**
@@ -140,6 +140,11 @@ export function parse(xml: string): Document {
    */
   function strip(val: string) {
     return val.replace(/^['"]|['"]$/g, "");
+  }
+
+  /** Basic handling of entities: &amp; &lt; &gt; */
+  function entities(val: string) {
+    return val.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
   }
 
   /**

@@ -164,6 +164,52 @@ function getHeadersToSign(headers: Headers): string[] {
   return headersToSign;
 }
 
+const CODES = {
+  A: "A".charCodeAt(0),
+  Z: "Z".charCodeAt(0),
+  a: "a".charCodeAt(0),
+  z: "z".charCodeAt(0),
+  "0": "0".charCodeAt(0),
+  "9": "9".charCodeAt(0),
+  "/": "/".charCodeAt(0),
+};
+const ALLOWED_BYTES = "-._~".split("").map((s) => s.charCodeAt(0));
+
+/**
+ * Canonical URI encoding for signing, per AWS documentation:
+ * 1. URI encode every byte except the unreserved characters:
+ *    'A'-'Z', 'a'-'z', '0'-'9', '-', '.', '_', and '~'.
+ * 2. The space character must be encoded as "%20" (and not as "+").
+ * 3. Each URI encoded byte is formed by a '%' and the
+ *    two-digit uppercase hexadecimal value of the byte. e.g. "%1A".
+ * 4. Encode the forward slash character, '/', everywhere except
+ *    in the object key name. For example, if the object key name
+ *    is photos/Jan/sample.jpg, the forward slash in the key name
+ *    is not encoded.
+ *
+ * See https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+ *
+ * @param string the string to encode.
+ */
+function awsUriEncode(string: string, allowSlashes = false) {
+  const bytes: Uint8Array = new TextEncoder().encode(string);
+  let encoded = "";
+  for (const byte of bytes) {
+    if (
+      (byte >= CODES.A && byte <= CODES.Z) ||
+      (byte >= CODES.a && byte <= CODES.z) ||
+      (byte >= CODES["0"] && byte <= CODES["9"]) ||
+      (ALLOWED_BYTES.includes(byte)) ||
+      (byte == CODES["/"] && allowSlashes)
+    ) {
+      encoded += String.fromCharCode(byte);
+    } else {
+      encoded += "%" + byte.toString(16).padStart(2, "0").toUpperCase();
+    }
+  }
+  return encoded;
+}
+
 /**
  * getCanonicalRequest generate a canonical request of style.
  *
@@ -203,7 +249,7 @@ function getCanonicalRequest(
 
   const canonical = [];
   canonical.push(method.toUpperCase());
-  canonical.push(encodeURI(requestResource));
+  canonical.push(awsUriEncode(requestResource, true));
   canonical.push(requestQuery);
   canonical.push(headersArray.join("\n") + "\n");
   canonical.push(headersToSign.join(";").toLowerCase());
@@ -273,6 +319,7 @@ async function sha256hmac(
 
 // Export for testing purposes only
 export const _internalMethods = {
+  awsUriEncode,
   getHeadersToSign,
   getCanonicalRequest,
   getStringToSign,

@@ -194,16 +194,34 @@ Deno.test({
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // non-ascii characters in URLs
 
-Deno.test({
-  name: "getObject()/putObject work with non-ASCII characters in URLs",
-  fn: async () => {
-    const path = "файл/gemütlich.txt";
-    const contents = `This is the contents of the file called '${path}'.`;
-    await client.putObject(path, contents);
-    const response = await client.getObject(path);
-    assertEquals(await response.text(), contents);
-  },
-});
+for (
+  const path of [
+    "simple.txt",
+    "файл/gemütlich.txt",
+    "path with spaces.txt",
+    "yes&no.dat",
+    "foo(bar)",
+    "1+1=2",
+    "~backup<crazy>.foo",
+  ]
+) {
+  Deno.test({
+    name: `get/put/list with unicode or special characters in URLs: ${path}`,
+    // only: true,
+    fn: async () => {
+      const prefix = `filenames-test-${(Math.random() + 1).toString(36).substring(7)}/`;
+      const contents = `This is the contents of the file called '${path}'.`;
+      await client.putObject(prefix + path, contents);
+      const response = await client.getObject(prefix + path);
+      assertEquals(await response.text(), contents);
+      const names = [];
+      for await (const entry of client.listObjects({ prefix })) {
+        names.push(entry.key);
+      }
+      assertEquals(names, [prefix + path]);
+    },
+  });
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // presignedGetObject()

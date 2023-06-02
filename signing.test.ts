@@ -3,6 +3,7 @@ import { bin2hex } from "./helpers.ts";
 import { _internalMethods as methods, presignV4, signV4 } from "./signing.ts";
 
 const {
+  awsUriEncode,
   getHeadersToSign,
   getCanonicalRequest,
   getStringToSign,
@@ -275,5 +276,17 @@ Deno.test({
       bin2hex(await sha256hmac("other secret", "other data")),
       "dc4833db4b1094fa86bb622dab5ca2ab4026065db473ffad5700adac105bca9d",
     );
+  },
+});
+
+Deno.test({
+  name: "awsUriEncode",
+  fn: () => {
+    assertEquals(awsUriEncode("foo/bar", true), "foo/bar");
+    assertEquals(awsUriEncode("foo/bar", false), "foo%2Fbar");
+    assertEquals(awsUriEncode("ABC-XYZ-abc-xyz-012-789!"), "ABC-XYZ-abc-xyz-012-789%21");
+    assertEquals(awsUriEncode("a.b-c_d~e"), "a.b-c_d~e");
+    assertEquals(awsUriEncode("words with spaces"), "words%20with%20spaces");
+    assertEquals(awsUriEncode("файл"), "%D1%84%D0%B0%D0%B9%D0%BB");
   },
 });
