@@ -567,16 +567,16 @@ export class Client {
         throw new Error(`Unexpected response: ${responseText}`);
       }
       // If a delimiter was specified, first return any common prefixes from this page of results:
-      const commonPrefixesElement = root.children.find((c) => c.name === "CommonPrefixes");
+      const prefixElements = root.children
+        .filter((c) => c.name === "CommonPrefixes")
+        .flatMap((c) => c.children);
       const toYield: Array<S3Object | CommonPrefix> = [];
-      if (commonPrefixesElement) {
-        for (const prefixElement of commonPrefixesElement.children) {
-          toYield.push({
-            type: "CommonPrefix",
-            prefix: prefixElement.content ?? "",
-          });
-          resultCount++;
-        }
+      for (const prefixElement of prefixElements) {
+        toYield.push({
+          type: "CommonPrefix",
+          prefix: prefixElement.content ?? "",
+        });
+        resultCount++;
       }
       // Now return all regular object keys found in the result:
       for (const objectElement of root.children.filter((c) => c.name === "Contents")) {
