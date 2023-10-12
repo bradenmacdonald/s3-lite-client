@@ -355,11 +355,11 @@ export class Client {
    */
   public getObject(
     objectName: string,
-    options?: { 
+    options?: {
       metadata?: ObjectMetadata;
       bucketName?: string;
       versionId?: string;
-      responseParams?: ResponseOverrideParams
+      responseParams?: ResponseOverrideParams;
     },
   ): Promise<Response> {
     return this.getPartialObject(objectName, { ...options, offset: 0, length: 0 });
