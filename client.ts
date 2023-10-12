@@ -30,7 +30,7 @@ export interface ClientOptions {
 }
 
 /**
- * Standard Metadata (headers) that can be set when uploading an object.
+ * Standard Metadata (headers) that can be set when interacting with an object.
  * See https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
  */
 const metadataKeys = [
@@ -355,7 +355,12 @@ export class Client {
    */
   public getObject(
     objectName: string,
-    options?: { bucketName?: string; versionId?: string; responseParams?: ResponseOverrideParams },
+    options?: { 
+      metadata?: ObjectMetadata;
+      bucketName?: string;
+      versionId?: string;
+      responseParams?: ResponseOverrideParams
+    },
   ): Promise<Response> {
     return this.getPartialObject(objectName, { ...options, offset: 0, length: 0 });
   }
@@ -372,6 +377,7 @@ export class Client {
     { offset, length, ...options }: {
       offset: number;
       length: number;
+      metadata?: ObjectMetadata;
       bucketName?: string;
       versionId?: string;
       responseParams?: ResponseOverrideParams;
@@ -384,7 +390,7 @@ export class Client {
       );
     }
 
-    const headers = new Headers();
+    const headers = new Headers(Object.entries(options.metadata ?? {}));
     let statusCode = 200; // Expected status code
     if (offset || length) {
       let range = "";
