@@ -1,5 +1,4 @@
 import { TransformChunkSizes } from "./transform-chunk-sizes.ts";
-import { readableStreamFromIterable } from "./deps.ts";
 import * as errors from "./errors.ts";
 import {
   isValidBucketName,
@@ -649,10 +648,10 @@ export class Client {
     if (typeof streamOrData === "string") {
       // Convert to binary using UTF-8
       const binaryData = new TextEncoder().encode(streamOrData);
-      stream = readableStreamFromIterable([binaryData]);
+      stream = ReadableStream.from([binaryData]);
       size = binaryData.length;
     } else if (streamOrData instanceof Uint8Array) {
-      stream = readableStreamFromIterable([streamOrData]);
+      stream = ReadableStream.from([streamOrData]);
       size = streamOrData.byteLength;
     } else if (streamOrData instanceof ReadableStream) {
       stream = streamOrData;

@@ -3,7 +3,6 @@
  *
  * See the README for instructions.
  */
-import { readableStreamFromIterable } from "./deps.ts";
 import { assert, assertEquals, assertInstanceOf, assertRejects } from "./deps-tests.ts";
 import { S3Client, S3Errors } from "./mod.ts";
 
@@ -97,7 +96,7 @@ Deno.test({
   name: "putObject() can stream a large file upload",
   fn: async () => {
     // First generate a 32MiB file in memory, 1 MiB at a time, as a stream
-    const dataStream = readableStreamFromIterable(async function* () {
+    const dataStream = ReadableStream.from(async function* () {
       for (let i = 0; i < 32; i++) {
         yield new Uint8Array(1024 * 1024).fill(i % 256); // Yield 1MB of data
       }
