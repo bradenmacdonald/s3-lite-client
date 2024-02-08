@@ -75,20 +75,15 @@ Deno.test({
   name: "putObject() can set metadata",
   fn: async () => {
     const key = "test-with-metadata.txt";
-    await client.putObject(key, "This is the contents of the file.", {
-      metadata: {
-        "Content-Type": "text/plain",
-        "Cache-Control": "public, max-age=456789, immutable",
-        "x-amz-meta-custom-header": "This is a custom value",
-      },
-    });
-    const stat = await client.statObject(key);
-    assertEquals(stat.key, key);
-    assertEquals(stat.metadata, {
+    const metadata = {
       "Content-Type": "text/plain",
       "Cache-Control": "public, max-age=456789, immutable",
       "x-amz-meta-custom-header": "This is a custom value",
-    });
+    };
+    await client.putObject(key, "This is the contents of the file.", { metadata });
+    const stat = await client.statObject(key);
+    assertEquals(stat.key, key);
+    assertEquals(stat.metadata, metadata);
   },
 });
 
@@ -213,11 +208,8 @@ for (
       await client.putObject(prefix + path, contents);
       const response = await client.getObject(prefix + path);
       assertEquals(await response.text(), contents);
-      const names = [];
-      for await (const entry of client.listObjects({ prefix })) {
-        names.push(entry.key);
-      }
-      assertEquals(names, [prefix + path]);
+      const keys = await Array.fromAsync(client.listObjects({ prefix }), (entry) => entry.key);
+      assertEquals(keys, [prefix + path]);
     },
   });
 }
@@ -262,10 +254,7 @@ Deno.test({
     await client.putObject(`${prefix}subpath/file-c.txt`, "file C");
     await client.putObject(`${prefix}subpath/file-d.txt`, "file D");
     const response = client.listObjects({ prefix });
-    const results = [];
-    for await (const result of response) {
-      results.push(result);
-    }
+    const results = await Array.fromAsync(response);
     assertEquals(results.length, 4);
     assertEquals(results[0].key, "list-objects-test-1/file-a.txt");
     assertEquals(results[0].etag, "31d97c4d04593b21b399ace73b061c34");
@@ -296,20 +285,14 @@ Deno.test({
     await Promise.all(putPromises);
     // Now retrieve them:
     const response = client.listObjects({ prefix, pageSize: 10 });
-    const results = [];
-    for await (const result of response) {
-      results.push(result);
-    }
+    const results = await Array.fromAsync(response);
     assertEquals(results.length, 30);
     assertEquals(results[0].key, `${prefix}file-00.txt`);
     assertEquals(results[29].key, `${prefix}file-29.txt`);
 
     // And it can limit the total number of results:
     const limitedResponse = client.listObjects({ prefix, pageSize: 10, maxResults: 25 });
-    const limitedResults = [];
-    for await (const result of limitedResponse) {
-      limitedResults.push(result);
-    }
+    const limitedResults = await Array.fromAsync(limitedResponse);
     assertEquals(limitedResults.length, 25);
   },
 });
@@ -327,10 +310,7 @@ Deno.test({
     await client.putObject(`${prefix}x-file.txt`, "file X");
 
     const response = client.listObjectsGrouped({ prefix, delimiter: "/", pageSize: 3 });
-    const results = [];
-    for await (const result of response) {
-      results.push(result);
-    }
+    const results = await Array.fromAsync(response);
     assertEquals(results.length, 5);
     // Note the order that we get the results in:
     assert(results[0].type === "Object");
