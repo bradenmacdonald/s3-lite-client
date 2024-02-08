@@ -46,12 +46,29 @@ const s3client = new S3Client({
   pathStyle: false,
 });
 
+// Log data about each object found under the 'data/concepts/' prefix:
 for await (const obj of s3client.listObjects({ prefix: "data/concepts/" })) {
   console.log(obj);
 }
+// {
+//   type: "Object",
+//   key: "data/concepts/updated_date=2024-01-25/part_000.gz",
+//   etag: "2c9b2843c8d2e9057656e1af1c2a92ad",
+//   size: 44105,
+//   lastModified: 2024-01-25T22:57:43.000Z
+// },
+// ...
+
+// Or, to get all the keys (paths) as an array:
+const keys = await Array.fromAsync(s3client.listObjects(), (entry) => entry.key);
+// keys = [
+//  "data/authors/manifest",
+//  "data/authors/updated_date=2023-06-08/part_000.gz",
+//  ...
+// ]
 ```
 
-Upload a file to a local MinIO server:
+Uploading and downloading a file using a local MinIO server:
 
 ```typescript
 import { S3Client } from "https://deno.land/x/s3_lite_client@0.6.2/mod.ts";
@@ -70,6 +87,14 @@ const s3client = new S3Client({
 
 // Upload a file:
 await s3client.putObject("test.txt", "This is the contents of the file.");
+
+// Now download it
+const result = await s3client.getObject("test.txt");
+// and stream the results to a local file:
+const localOutFile = await Deno.open("test-out.txt", { write: true, createNew: true });
+await result.body!.pipeTo(localOutFile.writable);
+// or instead of streaming, you can consume the whole file into memory by awaiting
+// result.text(), result.blob(), result.arrayBuffer(), or result.json()
 ```
 
 For more examples, check out the tests in [`integration.ts`](./integration.ts)
