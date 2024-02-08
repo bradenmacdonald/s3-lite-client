@@ -29,6 +29,9 @@ Supported functionality:
 - Delete an object: `client.deleteObject("key")`
 - Create pre-signed URLs: `client.presignedGetObject("key", options)` or
   `client.getPresignedUrl(method, "key", options)`
+- Check if a bucket exists: `client.bucketExists("bucketName")`
+- Create a new bucket: `client.makeBucket("bucketName")`
+- Remove a bucket: `client.removeBucket("bucketName")`
 
 ## Usage examples
 

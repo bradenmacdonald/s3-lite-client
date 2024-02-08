@@ -387,3 +387,23 @@ Deno.test({
     assertEquals(err.message, "The specified key does not exist.");
   },
 });
+
+Deno.test({
+  name: "bucketExists() can check if a bucket exists",
+  fn: async () => {
+    const testBucketName = "test-bucket";
+    // Check if the bucket exists. It should not.
+    let exists = await client.bucketExists(testBucketName);
+    assertEquals(exists, false);
+
+    // Create a bucket for testing and check if it exists
+    await client.makeBucket(testBucketName);
+    exists = await client.bucketExists(testBucketName);
+    assertEquals(exists, true);
+
+    // Delete the bucket and check if it exists
+    await client.removeBucket(testBucketName);
+    exists = await client.bucketExists(testBucketName);
+    assertEquals(exists, false);
+  },
+});
