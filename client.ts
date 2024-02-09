@@ -830,4 +830,36 @@ export class Client {
       versionId: response.headers.get("x-amz-version-id") || null,
     };
   }
+
+  public async bucketExists(bucketName: string): Promise<boolean> {
+    try {
+      const objects = this.listObjects({ bucketName });
+      // We don't need to fully list the objects, just check if we can start listing
+      await objects.next();
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof errors.ServerError && err.statusCode === 404) {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  public async makeBucket(bucketName: string): Promise<void> {
+    await this.makeRequest({
+      method: "PUT",
+      bucketName: this.getBucketName({ bucketName }),
+      objectName: "",
+      statusCode: 200,
+    });
+  }
+
+  public async removeBucket(bucketName: string): Promise<void> {
+    await this.makeRequest({
+      method: "DELETE",
+      bucketName: this.getBucketName({ bucketName }),
+      objectName: "",
+      statusCode: 204,
+    });
+  }
 }
