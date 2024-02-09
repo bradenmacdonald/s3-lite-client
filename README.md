@@ -39,7 +39,7 @@ Supported functionality:
 List data files from a public data set on Amazon S3:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.6.2/mod.ts";
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.7.0/mod.ts";
 
 const s3client = new S3Client({
   endPoint: "s3.us-east-1.amazonaws.com",
@@ -75,7 +75,7 @@ const keys = await Array.fromAsync(s3client.listObjects(), (entry) => entry.key)
 Uploading and downloading a file using a local MinIO server:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.6.2/mod.ts";
+import { S3Client } from "https://deno.land/x/s3_lite_client@0.7.0/mod.ts";
 
 // Connecting to a local MinIO server:
 const s3client = new S3Client({
