@@ -12,8 +12,9 @@ await build({
   entryPoints: ["./mod.ts"], // Replace with your actual entry point
   outDir: "./npm",
   shims: {
-    // Add shims as necessary for your project
-    deno: true,
+    deno: {
+      test: "dev",
+    },
     custom: [
       {
         package: {
