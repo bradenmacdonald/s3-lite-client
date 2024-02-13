@@ -153,13 +153,12 @@ function getHeadersToSign(headers: Headers): string[] {
     "content-type",
     "user-agent",
   ];
-  const headersToSign = [];
-  for (const key of headers.keys()) {
-    if (ignoredHeaders.includes(key.toLowerCase())) {
-      continue; // Ignore this header
+  const headersToSign: string[] = [];
+  headers.forEach((value, key) => {
+    if (!ignoredHeaders.includes(key.toLowerCase())) {
+      headersToSign.push(key);
     }
-    headersToSign.push(key);
-  }
+  });
   headersToSign.sort();
   return headersToSign;
 }
