@@ -26,17 +26,36 @@ await build({
   },
   package: {
     // Update with your package details
-    name: "@capgo/s3-lite-client",
+    name: "s3-lite-client",
     version: version,
     description: "This is a lightweight S3 client for Node.js and Deno.",
     license: "MIT",
     repository: {
       type: "git",
-      url: "git+https://github.com/riderx/deno-s3-lite-client.git",
+      url: "git+https://github.com/bradenmacdonald/deno-s3-lite-client.git",
     },
     bugs: {
-      url: "https://github.com/riderx/deno-s3-lite-client/issues",
+      url: "https://github.com/bradenmacdonald/deno-s3-lite-client/issues",
     },
+    engines: {
+      "node": ">=16"
+    },
+    author: {
+      "name": "Braden MacDonald",
+      "url": "https://github.com/bradenmacdonald"
+    },
+    contributors: [
+      "Martin Donadieu <martindonadieu@gmail.com> (https://martin.solos.ventures/)",
+    ],
+    keywords: [
+      "api",
+      "lite",
+      "amazon",
+      "minio",
+      "cloud",
+      "s3",
+      "storage"
+    ]
   },
   postBuild() {
     // Copy additional files to the npm directory if needed
@@ -45,4 +64,4 @@ await build({
   },
 });
 
-console.log("Build complete. Run `npm publish` in the `npm` directory.");
+console.log("Build complete. Run `cd npm && npm publish`.");
