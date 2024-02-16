@@ -9,7 +9,7 @@ import { TransformChunkSizes } from "./transform-chunk-sizes.ts";
  */
 class NumberSource extends ReadableStream<Uint8Array> {
   constructor(delayMs: number, chunksCount: number, bytesPerChunk = 1) {
-    let intervalTimer: any;
+    let intervalTimer: ReturnType<typeof setTimeout>;
     let i = 0;
     super({
       start(controller) {
