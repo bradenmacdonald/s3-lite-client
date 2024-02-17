@@ -11,6 +11,16 @@ await emptyDir("./npm");
 await build({
   entryPoints: ["./mod.ts"], // Replace with your actual entry point
   outDir: "./npm",
+  testPattern: "**/*(*.test|integration).{ts,tsx,js,mjs,jsx}",
+  // Filter when we use node stream package
+  // filterDiagnostic(diagnostic) {
+  //   if (
+  //     diagnostic.messageText.startsWith("Property 'from' does not exist on type '{ new (underlyingSource: UnderlyingByteSource, strategy?: QueuingStrategy<Uint8Array> | undefined): ReadableStream")
+  //   ) {
+  //     return false; // ignore all diagnostics For ReadableStream.from in this file
+  //   }
+  //   return true;
+  // },
   shims: {
     deno: {
       test: "dev",
@@ -19,10 +29,17 @@ await build({
       {
         package: {
           name: "web-streams-polyfill",
-          version: "^3.1.1",
+          version: "^3.3.3",
+          // subPath: "ponyfill",
         },
         globalNames: ["ReadableStream", "WritableStream", "TransformStream"],
       },
+      // {
+      //   package: {
+      //     name: "node:stream/web",
+      //   },
+      //   globalNames: ["ReadableStream", "WritableStream", "TransformStream"],
+      // },
     ],
   },
   package: {
@@ -39,11 +56,11 @@ await build({
       url: "https://github.com/bradenmacdonald/deno-s3-lite-client/issues",
     },
     engines: {
-      "node": ">=16"
+      "node": ">=16",
     },
     author: {
       "name": "Braden MacDonald",
-      "url": "https://github.com/bradenmacdonald"
+      "url": "https://github.com/bradenmacdonald",
     },
     contributors: [
       "Martin Donadieu <martindonadieu@gmail.com> (https://martin.solos.ventures/)",
@@ -55,8 +72,8 @@ await build({
       "minio",
       "cloud",
       "s3",
-      "storage"
-    ]
+      "storage",
+    ],
   },
   postBuild() {
     // Copy additional files to the npm directory if needed

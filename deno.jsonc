@@ -2,5 +2,10 @@
   "fmt": {
     "lineWidth": 120
   },
-  "lock": false
+  "lock": false,
+  "tasks": {
+    "test-integration": "deno test --allow-net integration.ts",
+    "npm-build": "deno run -A --no-check build_npm.ts",
+    "npm-publish": "cd npm && npm publish && cd .."
+  }
 }
