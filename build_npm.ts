@@ -13,33 +13,26 @@ await build({
   outDir: "./npm",
   testPattern: "**/*(*.test|integration).{ts,tsx,js,mjs,jsx}",
   // Filter when we use node stream package
-  // filterDiagnostic(diagnostic) {
-  //   if (
-  //     diagnostic.messageText.startsWith("Property 'from' does not exist on type '{ new (underlyingSource: UnderlyingByteSource, strategy?: QueuingStrategy<Uint8Array> | undefined): ReadableStream")
-  //   ) {
-  //     return false; // ignore all diagnostics For ReadableStream.from in this file
-  //   }
-  //   return true;
-  // },
+  filterDiagnostic(diagnostic) {
+    if (
+      diagnostic.messageText.startsWith("Property 'from' does not exist on type '{ new (underlyingSource: UnderlyingByteSource, strategy?: QueuingStrategy<Uint8Array> | undefined): ReadableStream")
+    ) {
+      return false; // ignore all diagnostics For ReadableStream.from in this file
+    }
+    return true;
+  },
   shims: {
+    undici: true, // fix: can copy a file test integration
     deno: {
       test: "dev",
     },
     custom: [
       {
         package: {
-          name: "web-streams-polyfill",
-          version: "^3.3.3",
-          // subPath: "ponyfill",
+          name: "node:stream/web",
         },
         globalNames: ["ReadableStream", "WritableStream", "TransformStream"],
       },
-      // {
-      //   package: {
-      //     name: "node:stream/web",
-      //   },
-      //   globalNames: ["ReadableStream", "WritableStream", "TransformStream"],
-      // },
     ],
   },
   package: {
