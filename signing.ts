@@ -154,7 +154,7 @@ function getHeadersToSign(headers: Headers): string[] {
     "user-agent",
   ];
   const headersToSign: string[] = [];
-  headers.forEach((value, key) => {
+  headers.forEach((_value, key) => {
     if (!ignoredHeaders.includes(key.toLowerCase())) {
       headersToSign.push(key);
     }

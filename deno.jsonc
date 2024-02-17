@@ -1,6 +1,10 @@
 {
   "fmt": {
-    "lineWidth": 120
+    "lineWidth": 120,
+    "exclude": ["npm/"]
+  },
+  "lint": {
+    "exclude": ["npm/"]
   },
   "lock": false,
   "tasks": {
