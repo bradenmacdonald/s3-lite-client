@@ -1,6 +1,15 @@
 {
   "fmt": {
-    "lineWidth": 120
+    "lineWidth": 120,
+    "exclude": ["npm/"]
   },
-  "lock": false
+  "lint": {
+    "exclude": ["npm/"]
+  },
+  "lock": false,
+  "tasks": {
+    "test-integration": "deno test --allow-net integration.ts",
+    "npm-build": "deno run -A --no-check build_npm.ts",
+    "npm-publish": "cd npm && npm publish && cd .."
+  }
 }
