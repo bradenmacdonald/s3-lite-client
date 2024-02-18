@@ -648,10 +648,20 @@ export class Client {
     if (typeof streamOrData === "string") {
       // Convert to binary using UTF-8
       const binaryData = new TextEncoder().encode(streamOrData);
-      stream = ReadableStream.from([binaryData]);
+      stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(binaryData);
+          controller.close();
+        }
+      });
       size = binaryData.length;
     } else if (streamOrData instanceof Uint8Array) {
-      stream = ReadableStream.from([streamOrData]);
+      stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(streamOrData);
+          controller.close();
+        }
+      });
       size = streamOrData.byteLength;
     } else if (streamOrData instanceof ReadableStream) {
       stream = streamOrData;

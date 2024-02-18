@@ -1,4 +1,4 @@
-import { build, emptyDir } from "https://deno.land/x/dnt/mod.ts";
+import { build, emptyDir } from "https://deno.land/x/dnt@0.40.0/mod.ts";
 
 const version = Deno.args[0];
 
@@ -12,17 +12,7 @@ await build({
   entryPoints: ["./mod.ts"], // Replace with your actual entry point
   outDir: "./npm",
   testPattern: "**/*(*.test|integration).{ts,tsx,js,mjs,jsx}",
-  // Filter when we use node stream package
-  filterDiagnostic(diagnostic) {
-    if (
-      diagnostic.messageText.startsWith("Property 'from' does not exist on type '{ new (underlyingSource: UnderlyingByteSource, strategy?: QueuingStrategy<Uint8Array> | undefined): ReadableStream")
-    ) {
-      return false; // ignore all diagnostics For ReadableStream.from in this file
-    }
-    return true;
-  },
   shims: {
-    undici: true, // fix: can copy a file test integration
     deno: {
       test: "dev",
     },
@@ -36,7 +26,6 @@ await build({
     ],
   },
   package: {
-    // Update with your package details
     name: "s3-lite-client",
     version: version,
     description: "This is a lightweight S3 client for Node.js and Deno.",
@@ -49,7 +38,7 @@ await build({
       url: "https://github.com/bradenmacdonald/deno-s3-lite-client/issues",
     },
     engines: {
-      "node": ">=16",
+      "node": ">=20",
     },
     author: {
       "name": "Braden MacDonald",
@@ -58,6 +47,9 @@ await build({
     contributors: [
       "Martin Donadieu <martindonadieu@gmail.com> (https://martin.solos.ventures/)",
     ],
+    devDependencies: {
+      "@types/node": "^20.11.1",
+    },
     keywords: [
       "api",
       "lite",

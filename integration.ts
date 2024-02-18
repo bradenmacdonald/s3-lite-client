@@ -91,11 +91,14 @@ Deno.test({
   name: "putObject() can stream a large file upload",
   fn: async () => {
     // First generate a 32MiB file in memory, 1 MiB at a time, as a stream
-    const dataStream = ReadableStream.from(async function* () {
-      for (let i = 0; i < 32; i++) {
-        yield new Uint8Array(1024 * 1024).fill(i % 256); // Yield 1MB of data
+    const dataStream = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < 32; i++) {
+          controller.enqueue(new Uint8Array(1024 * 1024).fill(i % 256)); // Yield 1MB of data
+        }
+        controller.close();
       }
-    }());
+    });
 
     // Upload the 32MB stream data as 7 5MB parts. The client doesn't know in advance how big the stream is.
     const key = "test-32m.dat";
