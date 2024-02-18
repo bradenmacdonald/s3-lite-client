@@ -97,7 +97,7 @@ Deno.test({
           controller.enqueue(new Uint8Array(1024 * 1024).fill(i % 256)); // Yield 1MB of data
         }
         controller.close();
-      }
+      },
     });
 
     // Upload the 32MB stream data as 7 5MB parts. The client doesn't know in advance how big the stream is.

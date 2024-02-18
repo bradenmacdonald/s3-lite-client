@@ -652,7 +652,7 @@ export class Client {
         start(controller) {
           controller.enqueue(binaryData);
           controller.close();
-        }
+        },
       });
       size = binaryData.length;
     } else if (streamOrData instanceof Uint8Array) {
@@ -660,7 +660,7 @@ export class Client {
         start(controller) {
           controller.enqueue(streamOrData);
           controller.close();
-        }
+        },
       });
       size = streamOrData.byteLength;
     } else if (streamOrData instanceof ReadableStream) {
