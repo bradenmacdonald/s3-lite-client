@@ -124,6 +124,9 @@ const maximumPartSize = 5 * 1024 * 1024 * 1024;
 /** The maximum allowed object size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
 const maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
 
+/**
+ * Client for connecting to S3-compatible object storage services.
+ */
 export class Client {
   readonly host: string;
   readonly port: number;
@@ -173,6 +176,7 @@ export class Client {
     this.region = params.region;
   }
 
+  /** Internal helper method to figure out which bucket name to use for a request */
   protected getBucketName(options: undefined | { bucketName?: string }): string {
     const bucketName = options?.bucketName ?? this.defaultBucket;
     if (bucketName === undefined || !isValidBucketName(bucketName)) {
@@ -185,7 +189,6 @@ export class Client {
 
   /**
    * Common code used for both "normal" requests and presigned UTL requests
-   * @param param0
    */
   private buildRequestOptions(options: {
     objectName: string;
@@ -620,6 +623,9 @@ export class Client {
     }
   }
 
+  /**
+   * Upload an object
+   */
   async putObject(
     objectName: string,
     streamOrData: ReadableStream<Uint8Array> | Uint8Array | string,
@@ -648,10 +654,23 @@ export class Client {
     if (typeof streamOrData === "string") {
       // Convert to binary using UTF-8
       const binaryData = new TextEncoder().encode(streamOrData);
-      stream = ReadableStream.from([binaryData]);
+      if (typeof ReadableStream.from !== "undefined") {
+        stream = ReadableStream.from([binaryData]);
+      } else {
+        // ReadableStream.from is not yet supported by some runtimes :/
+        // https://github.com/oven-sh/bun/issues/3700
+        // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static#browser_compatibility
+        // deno-fmt-ignore
+        stream = new ReadableStream({ start(c) { c.enqueue(binaryData); c.close(); } });
+      }
       size = binaryData.length;
     } else if (streamOrData instanceof Uint8Array) {
-      stream = ReadableStream.from([streamOrData]);
+      if (typeof ReadableStream.from !== "undefined") {
+        stream = ReadableStream.from([streamOrData]);
+      } else {
+        // deno-fmt-ignore
+        stream = new ReadableStream({ start(c) { c.enqueue(streamOrData); c.close(); } });
+      }
       size = streamOrData.byteLength;
     } else if (streamOrData instanceof ReadableStream) {
       stream = streamOrData;
@@ -831,6 +850,7 @@ export class Client {
     };
   }
 
+  /** Check if a bucket exists */
   public async bucketExists(bucketName: string): Promise<boolean> {
     try {
       const objects = this.listObjects({ bucketName });
@@ -845,6 +865,7 @@ export class Client {
     }
   }
 
+  /** Create a new bucket */
   public async makeBucket(bucketName: string): Promise<void> {
     await this.makeRequest({
       method: "PUT",
@@ -854,6 +875,7 @@ export class Client {
     });
   }
 
+  /** Delete a bucket (must be empty) */
   public async removeBucket(bucketName: string): Promise<void> {
     await this.makeRequest({
       method: "DELETE",
