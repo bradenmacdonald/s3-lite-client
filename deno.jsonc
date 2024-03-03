@@ -1,6 +1,13 @@
 {
+  "name": "@bradenmacdonald/s3-lite-client",
+  "version": "0.7.1",
+  "exports": "./mod.ts",
   "fmt": {
     "lineWidth": 120
   },
-  "lock": false
+  "lock": false,
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^0.218",
+    "@std/io": "jsr:@std/io@^0.218"
+  }
 }

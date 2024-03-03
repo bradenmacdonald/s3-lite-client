@@ -133,7 +133,7 @@ export class Client {
   readonly sessionToken?: string;
   readonly defaultBucket: string | undefined;
   readonly region: string;
-  readonly userAgent = "deno-s3-lite-client";
+  readonly userAgent = "s3-lite-client";
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key */
   readonly pathStyle: boolean;
 
@@ -173,7 +173,7 @@ export class Client {
     this.region = params.region;
   }
 
-  protected getBucketName(options: undefined | { bucketName?: string }) {
+  protected getBucketName(options: undefined | { bucketName?: string }): string {
     const bucketName = options?.bucketName ?? this.defaultBucket;
     if (bucketName === undefined || !isValidBucketName(bucketName)) {
       throw new errors.InvalidBucketNameError(
@@ -477,7 +477,7 @@ export class Client {
       expirySeconds?: number;
       requestDate?: Date;
     } = {},
-  ) {
+  ): Promise<string> {
     const { versionId, responseParams, ...otherOptions } = options;
     const parameters: Record<string, string> = {
       ...responseParams,
@@ -714,7 +714,7 @@ export class Client {
    * - maximum of 10,000 parts per upload
    * - maximum object size of 5TB
    */
-  protected calculatePartSize(size: number | undefined) {
+  protected calculatePartSize(size: number | undefined): number {
     if (size === undefined) {
       // If we don't know the total size (e.g. we're streaming data), assume it's
       // the largest allowed object size, so we can guarantee the upload works

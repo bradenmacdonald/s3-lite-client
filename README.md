@@ -1,8 +1,8 @@
-# deno-s3-lite-client
+# s3-lite-client
 
-This is a lightweight S3 client for Deno, designed to offer all the key features you may need, with no dependencies
-outside of the Deno standard library. It does not use any Deno-specific features, so it should work with any modern
-JavaScript runtime that supports the `fetch` API and URL imports.
+This is a lightweight S3 client for Deno and other modern JavaScript runtimes. It is designed to offer all the key
+features you may need, with no dependencies outside of the Deno standard library. It does not use any Deno-specific
+features, so it should work with any runtime that supports the `fetch` API, web streams API, and ES modules (ESM).
 
 This client is 100% MIT licensed, and is derived from the excellent
 [MinIO JavaScript Client](https://github.com/minio/minio-js).
@@ -39,7 +39,7 @@ Supported functionality:
 List data files from a public data set on Amazon S3:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.7.0/mod.ts";
+import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 const s3client = new S3Client({
   endPoint: "s3.us-east-1.amazonaws.com",
@@ -75,7 +75,7 @@ const keys = await Array.fromAsync(s3client.listObjects(), (entry) => entry.key)
 Uploading and downloading a file using a local MinIO server:
 
 ```typescript
-import { S3Client } from "https://deno.land/x/s3_lite_client@0.7.0/mod.ts";
+import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 // Connecting to a local MinIO server:
 const s3client = new S3Client({
@@ -129,7 +129,7 @@ Then while MinIO is running, run
 deno test --allow-net integration.ts
 ```
 
-To debug what MinIO is seeing, run these two commands:
+(If you encounter issues and need to debug what MinIO is seeing, run these two commands:)
 
 ```sh
 mc alias set localdebug http://localhost:9000 AKIA_DEV secretkey

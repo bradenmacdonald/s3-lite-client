@@ -1,1 +1,1 @@
-export { Buffer } from "https://deno.land/std@0.215.0/io/buffer.ts";
+export { Buffer } from "@std/io/buffer";
