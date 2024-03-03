@@ -37,7 +37,7 @@ Supported functionality:
 ## Installation
 
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
-- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.7.2";`
+- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.7.3";`
 - NPM: `npx jsr add @bradenmacdonald/s3-lite-client`
 - Yarn: `yarn dlx jsr add @bradenmacdonald/s3-lite-client`
 - pnpm: `pnpm dlx jsr add @bradenmacdonald/s3-lite-client`
@@ -45,9 +45,9 @@ Supported functionality:
 - Browser:
   ```html
   <script type="module">
-    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.2";
+    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.3";
     // Or:
-    const { S3Client } = await import('https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.2')
+    const { S3Client } = await import('https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.3');
   </script>
   ```
 
