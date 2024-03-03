@@ -1,4 +1,4 @@
-import { Buffer } from "./deps.ts";
+import { Buffer } from "@std/io/buffer";
 
 /**
  * This stream transform will buffer the data it receives until it has enough to form

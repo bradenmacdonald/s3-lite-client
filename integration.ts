@@ -3,7 +3,10 @@
  *
  * See the README for instructions.
  */
-import { assert, assertEquals, assertInstanceOf, assertRejects } from "./deps-tests.ts";
+import { assert } from "@std/assert/assert";
+import { assertEquals } from "@std/assert/assert_equals";
+import { assertInstanceOf } from "@std/assert/assert_instance_of";
+import { assertRejects } from "@std/assert/assert_rejects";
 import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
