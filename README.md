@@ -34,7 +34,26 @@ Supported functionality:
 - Create a new bucket: `client.makeBucket("bucketName")`
 - Remove a bucket: `client.removeBucket("bucketName")`
 
-## Usage examples
+## Installation
+
+- Deno: `deno add @bradenmacdonald/s3-lite-client`
+- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.7.2";`
+- NPM: `npx jsr add @bradenmacdonald/s3-lite-client`
+- Yarn: `yarn dlx jsr add @bradenmacdonald/s3-lite-client`
+- pnpm: `pnpm dlx jsr add @bradenmacdonald/s3-lite-client`
+- Bun: `bunx jsr add @bradenmacdonald/s3-lite-client`
+- Browser:
+  ```html
+  <script type="module">
+    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.2";
+    // Or:
+    const { S3Client } = await import('https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.2')
+  </script>
+  ```
+
+Note: if you're using Node.js, this only works on Node 19+.
+
+## Usage Examples (Quickstart)
 
 List data files from a public data set on Amazon S3:
 
