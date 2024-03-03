@@ -91,11 +91,26 @@ Deno.test({
   name: "putObject() can stream a large file upload",
   fn: async () => {
     // First generate a 32MiB file in memory, 1 MiB at a time, as a stream
-    const dataStream = ReadableStream.from(async function* () {
-      for (let i = 0; i < 32; i++) {
-        yield new Uint8Array(1024 * 1024).fill(i % 256); // Yield 1MB of data
-      }
-    }());
+    let dataStream;
+    if (typeof ReadableStream.from !== "undefined") {
+      dataStream = ReadableStream.from(async function* () {
+        for (let i = 0; i < 32; i++) {
+          yield new Uint8Array(1024 * 1024).fill(i); // Yield 1MB of data
+        }
+      }());
+    } else {
+      // ReadableStream.from is not yet supported by some runtimes :/
+      // https://github.com/oven-sh/bun/issues/3700
+      // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static#browser_compatibility
+      let i = 0;
+      dataStream = new ReadableStream({
+        pull(controller) {
+          if (i < 32) {
+            controller.enqueue(new Uint8Array(1024 * 1024).fill(i++));
+          } else controller.close();
+        },
+      });
+    }
 
     // Upload the 32MB stream data as 7 5MB parts. The client doesn't know in advance how big the stream is.
     const key = "test-32m.dat";
