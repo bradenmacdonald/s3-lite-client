@@ -36,6 +36,9 @@ Supported functionality:
 
 ## Installation
 
+[![JSR Version](https://jsr.io/badges/@bradenmacdonald/s3-lite-client)](https://jsr.io/@bradenmacdonald/s3-lite-client)
+[![JSR Score](https://jsr.io/badges/@bradenmacdonald/s3-lite-client/score)](https://jsr.io/@bradenmacdonald/s3-lite-client/score)
+
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
 - Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.7.3";`
 - NPM: `npx jsr add @bradenmacdonald/s3-lite-client`
