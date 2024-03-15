@@ -39,7 +39,6 @@ const metadataKeys = [
   "Content-Encoding",
   "Content-Language",
   "Expires",
-  "x-amz-acl",
   "x-amz-grant-full-control",
   "x-amz-grant-read",
   "x-amz-grant-read-acp",
@@ -66,7 +65,19 @@ const metadataKeys = [
  *
  * Custom keys should be like "x-amz-meta-..."
  */
-export type ObjectMetadata = { [K in typeof metadataKeys[number]]?: string } & { [key: string]: string };
+export type ObjectMetadata =
+  & {
+    "x-amz-acl"?:
+      | "private"
+      | "public-read"
+      | "public-read-write"
+      | "authenticated-read"
+      | "aws-exec-read"
+      | "bucket-owner-read"
+      | "bucket-owner-full-control";
+  }
+  & { [K in typeof metadataKeys[number]]?: string }
+  & { [customMetadata: `x-amz-meta-${string}`]: string };
 
 /** Response Header Overrides
  * These parameters can be used with an authenticated or presigned get object request, to
@@ -787,7 +798,7 @@ export class Client {
     // Also add in custom metadata
     response.headers.forEach((_value, key) => {
       if (key.startsWith("x-amz-meta-")) {
-        metadata[key] = response.headers.get(key) as string;
+        metadata[key as `x-amz-meta-${string}`] = response.headers.get(key) as string;
       }
     });
 

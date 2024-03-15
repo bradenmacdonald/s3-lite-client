@@ -25,6 +25,7 @@ Supported functionality:
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
   - Can split large uploads into multiple parts and uploads parts in parallel.
+  - Can set custom headers, ACLs, and other metadata on the new object (example below).
 - Copy an object: `client.copyObject({ sourceKey: "source", options }, "dest", options)`
   - Can copy between different buckets.
 - Delete an object: `client.deleteObject("key")`
@@ -121,6 +122,17 @@ const localOutFile = await Deno.open("test-out.txt", { write: true, createNew: t
 await result.body!.pipeTo(localOutFile.writable);
 // or instead of streaming, you can consume the whole file into memory by awaiting
 // result.text(), result.blob(), result.arrayBuffer(), or result.json()
+```
+
+Set ACLs, Content-Type, custom metadata, etc. during upload:
+
+```ts
+await s3client.putObject("key", streamOrData, {
+  metadata: {
+    "x-amz-acl": "public-read",
+    "x-amz-meta-custom": "value",
+  },
+})`
 ```
 
 For more examples, check out the tests in [`integration.ts`](./integration.ts)
