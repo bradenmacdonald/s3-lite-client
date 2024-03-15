@@ -387,6 +387,40 @@ Deno.test({
 });
 
 Deno.test({
+  name: "copyObject() copies metadata, but we can override it if we want to",
+  fn: async () => {
+    const contents = new Uint8Array([1, 2, 3, 4, 5, 6]);
+    const sourceKey = "test-copy-metadata-source.txt";
+    const destKeySame = "test-copy-metadata-same.txt";
+    const destKeyNew = "test-copy-metadata-new.txt";
+
+    // Create the source file:
+    const metadata = {
+      "Content-Type": "test/custom",
+      "x-amz-meta-custom-key": "custom-value",
+    };
+    await client.putObject(sourceKey, contents, { metadata });
+    // Make sure the destination doesn't yet exist:
+    await client.deleteObject(destKeySame);
+    assertEquals(await client.exists(destKeySame), false);
+
+    // Copy it with the same metadata:
+    await client.copyObject({ sourceKey }, destKeySame);
+    const stat = await client.statObject(destKeySame);
+    assertEquals(stat.metadata, metadata);
+
+    // Copy it with the different metadata:
+    const newMetadata = {
+      "Content-Type": "application/javascript",
+      "x-amz-meta-other": "new",
+    };
+    await client.copyObject({ sourceKey }, destKeyNew, { metadata: newMetadata });
+    const statNew = await client.statObject(destKeyNew);
+    assertEquals(statNew.metadata, newMetadata);
+  },
+});
+
+Deno.test({
   name: "bucketExists() can check if a bucket exists",
   fn: async () => {
     const testBucketName = "test-bucket";

@@ -819,7 +819,11 @@ export class Client {
   public async copyObject(
     source: { sourceBucketName?: string; sourceKey: string; sourceVersionId?: string },
     objectName: string,
-    options?: { bucketName?: string },
+    options?: {
+      bucketName?: string;
+      /** Metadata for the new object. If not specified, metadata will be copied from the source. */
+      metadata?: ObjectMetadata;
+    },
   ): Promise<CopiedObjectInfo> {
     const bucketName = this.getBucketName(options);
     const sourceBucketName = source.sourceBucketName ?? bucketName;
@@ -832,13 +836,13 @@ export class Client {
     let xAmzCopySource = `${sourceBucketName}/${source.sourceKey}`;
     if (source.sourceVersionId) xAmzCopySource += `?versionId=${source.sourceVersionId}`;
 
-    const response = await this.makeRequest({
-      method: "PUT",
-      bucketName,
-      objectName,
-      headers: new Headers({ "x-amz-copy-source": xAmzCopySource }),
-      returnBody: true,
-    });
+    const headers = new Headers(options?.metadata);
+    if (options?.metadata !== undefined) {
+      headers.set("x-amz-metadata-directive", "REPLACE");
+    }
+    headers.set("x-amz-copy-source", xAmzCopySource);
+
+    const response = await this.makeRequest({ method: "PUT", bucketName, objectName, headers, returnBody: true });
 
     const responseText = await response.text();
     // Parse the response XML.
