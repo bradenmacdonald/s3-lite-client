@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert/assert_equals";
+import { assertEquals } from "@std/assert/assert-equals";
 import { bin2hex, isValidPort, makeDateLong, makeDateShort, sha256digestHex } from "./helpers.ts";
 
 Deno.test({
