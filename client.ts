@@ -122,8 +122,10 @@ export interface CommonPrefix {
   prefix: string;
 }
 
+/**
+ * Additional properties provided by `statObject` compared to `listObjects`.
+ */
 export interface ObjectStatus extends S3Object {
-  // In addition to the data provided by "listObjects()", statObject() provides:
   versionId: string | null;
   metadata: ObjectMetadata;
 }
