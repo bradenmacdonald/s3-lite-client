@@ -2,6 +2,13 @@ import type { Client, ObjectMetadata, UploadedObjectInfo } from "./client.ts";
 import { getVersionId, sanitizeETag } from "./helpers.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
+// Metadata headers that must be included in each part of a multi-part upload
+const multipartTagAlongMetadataKeys = [
+  "x-amz-server-side-encryption-customer-algorithm",
+  "x-amz-server-side-encryption-customer-key",
+  "x-amz-server-side-encryption-customer-key-MD5",
+];
+
 /**
  * Stream a file to S3
  *
@@ -68,10 +75,19 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
             })).uploadId;
           }
           // Upload the next part
+          const partHeaders: Record<string, string> = {
+            "Content-Length": String(chunk.length),
+          };
+          for (const key of multipartTagAlongMetadataKeys) {
+            const value = metadata[key];
+            if (value) {
+              partHeaders[key] = value;
+            }
+          }
           const partPromise = client.makeRequest({
             method,
             query: { partNumber: partNumber.toString(), uploadId },
-            headers: new Headers({ "Content-Length": String(chunk.length) }),
+            headers: new Headers(partHeaders),
             bucketName: bucketName,
             objectName: objectName,
             payload: chunk,
