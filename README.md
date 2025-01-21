@@ -132,7 +132,7 @@ await s3client.putObject("key", streamOrData, {
     "x-amz-acl": "public-read",
     "x-amz-meta-custom": "value",
   },
-})`
+})
 ```
 
 For more examples, check out the tests in [`integration.ts`](./integration.ts)
