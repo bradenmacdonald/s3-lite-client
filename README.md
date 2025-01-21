@@ -51,7 +51,7 @@ Supported functionality:
   <script type="module">
     import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.6";
     // Or:
-    const { S3Client } = await import('https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.6');
+    const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.7.6");
   </script>
   ```
 
@@ -132,7 +132,7 @@ await s3client.putObject("key", streamOrData, {
     "x-amz-acl": "public-read",
     "x-amz-meta-custom": "value",
   },
-})
+});
 ```
 
 For more examples, check out the tests in [`integration.ts`](./integration.ts)

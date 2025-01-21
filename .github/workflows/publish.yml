@@ -1,8 +1,8 @@
 name: Publish to JSR
 on:
   push:
-    tags:        
-      - '*'  # Publish every time a tag is pushed (unless it contains '/')
+    tags:
+      - "*" # Publish every time a tag is pushed (unless it contains '/')
 
 jobs:
   publish:
