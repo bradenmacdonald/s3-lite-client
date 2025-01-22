@@ -46,7 +46,7 @@ jobs:
         run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2021-10-23T03-28-24Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
       # TODO: can we get jsr to load the dependency versions from deno.jsonc?
       - name: Install dependencies
-        run: bunx jsr add @std/streams@1.0.8 @std/assert@1.0.10
+        run: bunx jsr add @std/assert@1.0.10
       - name: Convert integration test from Deno to Bun test runner
         run: '(echo -e ''import { test } from "bun:test";\nconst Deno = { test: ({fn}: {fn: () => void, name: string}) => test(fn) };''; cat integration.ts ) > integration-bun.ts'
       - name: Run integration tests with bun
