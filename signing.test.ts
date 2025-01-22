@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert/assert-equals";
+import { assertEquals } from "@std/assert/equals";
 import { bin2hex } from "./helpers.ts";
 import { _internalMethods as methods, presignV4, signV4 } from "./signing.ts";
 

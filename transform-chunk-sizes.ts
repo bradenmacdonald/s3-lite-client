@@ -1,4 +1,4 @@
-import { Buffer } from "@std/io/buffer";
+import { Buffer } from "@std/streams/buffer";
 
 /**
  * This stream transform will buffer the data it receives until it has enough to form
@@ -9,22 +9,26 @@ export class TransformChunkSizes extends TransformStream<Uint8Array, Uint8Array>
     // This large buffer holds all the incoming data we receive until we reach at least outChunkSize, which we then pass on.
     const buffer = new Buffer();
     buffer.grow(outChunkSize);
+    const bufferWriter = buffer.writable.getWriter();
+    const bufferReader = buffer.readable.getReader({ mode: "byob" });
 
     super({
       start() {}, // required
       async transform(chunk, controller) {
-        buffer.write(chunk);
+        await bufferWriter.write(chunk);
 
         while (buffer.length >= outChunkSize) {
           const outChunk = new Uint8Array(outChunkSize);
-          const readFromBuffer = await buffer.read(outChunk);
-          if (readFromBuffer !== outChunkSize) {
+          const readResult = await bufferReader.read(outChunk);
+          if (readResult.value === undefined || readResult.value?.length !== outChunkSize) {
             throw new Error(
-              `Unexpectedly read ${readFromBuffer} bytes from transform buffer when trying to read ${outChunkSize} bytes.`,
+              `Unexpectedly read ${
+                readResult.value?.length ?? 0
+              } bytes from transform buffer when trying to read ${outChunkSize} bytes.`,
             );
           }
-          // Now "outChunk" holds the next chunk of data - pass it on to the output:
-          controller.enqueue(outChunk);
+          // Now "readResult.value" holds the next chunk of data (outChunk) - pass it on to the output:
+          controller.enqueue(readResult.value);
         }
       },
       flush(controller) {
