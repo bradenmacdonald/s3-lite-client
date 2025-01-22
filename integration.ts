@@ -4,9 +4,9 @@
  * See the README for instructions.
  */
 import { assert } from "@std/assert/assert";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertInstanceOf } from "@std/assert/assert-instance-of";
-import { assertRejects } from "@std/assert/assert-rejects";
+import { assertEquals } from "@std/assert/equals";
+import { assertInstanceOf } from "@std/assert/instance-of";
+import { assertRejects } from "@std/assert/rejects";
 import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
