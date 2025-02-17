@@ -26,6 +26,11 @@ export interface ClientOptions {
   region: string;
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key (default: true) */
   pathStyle?: boolean | undefined;
+  /**
+   * Path prefix. Usually not required, but some API servers like Supabase S3 need this.
+   * e.g. If docs say "S3 Storage URL: http://127.0.0.1:54321/storage/v1/s3" then pathPrefix is "/storage/v1/s3"
+   */
+  pathPrefix?: string;
 }
 
 /**
@@ -152,6 +157,7 @@ export class Client {
   readonly userAgent = "s3-lite-client";
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key */
   readonly pathStyle: boolean;
+  readonly pathPrefix?: string;
 
   constructor(params: ClientOptions) {
     // Default values if not specified.
@@ -185,8 +191,21 @@ export class Client {
     this.#secretKey = params.secretKey ?? "";
     this.sessionToken = params.sessionToken;
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
+    this.pathPrefix = params.pathPrefix ?? "";
     this.defaultBucket = params.bucket;
     this.region = params.region;
+
+    if (this.pathPrefix) {
+      if (!this.pathStyle) {
+        throw new errors.InvalidArgumentError(`pathPrefix is incompatible with pathStyle=false`);
+      }
+      if (!this.pathPrefix.startsWith("/")) {
+        throw new errors.InvalidArgumentError(`pathPrefix should start with /`);
+      }
+      if (this.pathPrefix.endsWith("/")) {
+        throw new errors.InvalidArgumentError(`pathPrefix should not end with /`);
+      }
+    }
   }
 
   /** Internal helper method to figure out which bucket name to use for a request */
@@ -220,7 +239,8 @@ export class Client {
     const queryAsString = typeof options.query === "object"
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
-    const path = (this.pathStyle ? `/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
+    const path =
+      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
     return { headers, host, path };
   }

@@ -56,5 +56,21 @@ Deno.test({
       assertEquals(client.protocol, "http:");
       assertEquals(client.host, endPoint + ":5432"); // Port is required
     });
+
+    await t.step("supabase development example", () => {
+      const client = new Client({
+        endPoint: "127.0.0.1",
+        port: 54321,
+        useSSL: false,
+        region: "local",
+        pathPrefix: "/storage/v1/s3",
+        accessKey: "123456a08b95bf1b7ff3510000000000",
+        secretKey: "123456e4652dd023b7abcdef0e0d2d34bd487ee0cc3254aed6eda30000000000",
+      });
+      assertEquals(client.port, 54321);
+      assertEquals(client.protocol, "http:");
+      assertEquals(client.host, "127.0.0.1:54321");
+      assertEquals(client.pathPrefix, "/storage/v1/s3");
+    });
   },
 });
