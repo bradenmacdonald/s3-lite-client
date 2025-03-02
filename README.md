@@ -67,12 +67,9 @@ List data files from a public data set on Amazon S3:
 import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 const s3client = new S3Client({
-  endPoint: "s3.us-east-1.amazonaws.com",
-  port: 443,
-  useSSL: true,
+  endPoint: "https://s3.us-east-1.amazonaws.com",
   region: "us-east-1",
   bucket: "openalex",
-  pathStyle: false,
 });
 
 // Log data about each object found under the 'data/concepts/' prefix:
@@ -104,14 +101,11 @@ import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 // Connecting to a local MinIO server:
 const s3client = new S3Client({
-  endPoint: "localhost",
-  port: 9000,
-  useSSL: false,
+  endPoint: "http://localhost:9000",
   region: "dev-region",
+  bucket: "dev-bucket",
   accessKey: "AKIA_DEV",
   secretKey: "secretkey",
-  bucket: "dev-bucket",
-  pathStyle: true,
 });
 
 // Upload a file:
@@ -124,6 +118,18 @@ const localOutFile = await Deno.open("test-out.txt", { write: true, createNew: t
 await result.body!.pipeTo(localOutFile.writable);
 // or instead of streaming, you can consume the whole file into memory by awaiting
 // result.text(), result.blob(), result.arrayBuffer(), or result.json()
+```
+
+Creating a bucket on the S3 service of a local supabase development server:
+
+```ts
+const client = new S3Client({
+  endPoint: "http://127.0.0.1:54321/storage/v1/s3",
+  region: "local",
+  accessKey: "paste from output of supabase start",
+  secretKey: "paste from output of supabase start",
+});
+await client.makeBucket("my-bucket");
 ```
 
 Set ACLs, Content-Type, custom metadata, etc. during upload:
