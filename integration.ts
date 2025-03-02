@@ -313,9 +313,9 @@ Deno.test({
       );
 
       // NOTE: We can't actually fetch the content using the presigned URL in this test
-      // because MinIO in test mode doesn't validate the token. In a real environment
-      // with AWS or other S3-compatible storage that supports session tokens, this would work.
-      // This test confirms the token is included in the URL.
+      // because we don't have a valid session token.
+      // TODO: use the STS API to create and test with valid temporary credentials:
+      // https://github.com/minio/minio/blob/master/docs/sts/assume-role.md#sample-post-request
     } finally {
       // Clean up
       await client.deleteObject(key);
