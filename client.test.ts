@@ -72,5 +72,106 @@ Deno.test({
       assertEquals(client.host, "127.0.0.1:54321");
       assertEquals(client.pathPrefix, "/storage/v1/s3");
     });
+
+    // New tests for URL parsing
+    await t.step("full HTTPS URL", () => {
+      const client = new Client({
+        endPoint: "https://s3.eu-north-1.amazonaws.com",
+        region: "eu-north-1",
+      });
+      assertEquals(client.port, 443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "s3.eu-north-1.amazonaws.com");
+      assertEquals(client.pathPrefix, "");
+    });
+
+    await t.step("full HTTP URL", () => {
+      const client = new Client({
+        endPoint: "http://s3.eu-north-1.amazonaws.com",
+        region: "eu-north-1",
+      });
+      assertEquals(client.port, 80);
+      assertEquals(client.protocol, "http:");
+      assertEquals(client.host, "s3.eu-north-1.amazonaws.com");
+      assertEquals(client.pathPrefix, "");
+    });
+
+    await t.step("URL with port", () => {
+      const client = new Client({
+        endPoint: "https://s3.eu-north-1.amazonaws.com:8443",
+        region: "eu-north-1",
+      });
+      assertEquals(client.port, 8443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "s3.eu-north-1.amazonaws.com:8443");
+      assertEquals(client.pathPrefix, "");
+    });
+
+    await t.step("URL with path prefix", () => {
+      const client = new Client({
+        endPoint: "https://example.com/storage/v1/s3",
+        region: "us-east-1",
+      });
+      assertEquals(client.port, 443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "example.com");
+      assertEquals(client.pathPrefix, "/storage/v1/s3");
+    });
+
+    await t.step("URL with path prefix (trailing slash)", () => {
+      const client = new Client({
+        endPoint: "https://example.com/storage/v1/s3/",
+        region: "us-east-1",
+      });
+      assertEquals(client.port, 443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "example.com");
+      assertEquals(client.pathPrefix, "/storage/v1/s3");
+    });
+
+    await t.step("URL with all components", () => {
+      const client = new Client({
+        endPoint: "http://localhost:9000/my-prefix",
+        region: "local",
+      });
+      assertEquals(client.port, 9000);
+      assertEquals(client.protocol, "http:");
+      assertEquals(client.host, "localhost:9000");
+      assertEquals(client.pathPrefix, "/my-prefix");
+    });
+
+    await t.step("explicit useSSL overrides URL protocol", () => {
+      const client = new Client({
+        endPoint: "http://s3.example.com",
+        region: "us-east-1",
+        useSSL: true, // This should override the http:// in the URL
+      });
+      assertEquals(client.port, 443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "s3.example.com");
+    });
+
+    await t.step("explicit port overrides URL port", () => {
+      const client = new Client({
+        endPoint: "https://s3.example.com:8443",
+        region: "us-east-1",
+        port: 9000, // This should override the port in the URL
+      });
+      assertEquals(client.port, 9000);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "s3.example.com:9000");
+    });
+
+    await t.step("explicit pathPrefix overrides URL path", () => {
+      const client = new Client({
+        endPoint: "https://example.com/from-url",
+        region: "us-east-1",
+        pathPrefix: "/from-param", // This should override the path in the URL
+      });
+      assertEquals(client.port, 443);
+      assertEquals(client.protocol, "https:");
+      assertEquals(client.host, "example.com");
+      assertEquals(client.pathPrefix, "/from-param");
+    });
   },
 });
