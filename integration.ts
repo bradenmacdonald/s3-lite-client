@@ -59,7 +59,8 @@ Deno.test({
       "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
     );
     assertEquals(err.bucketName, config.bucket);
-    assertEquals(err.region, config.region);
+    // This used to work but MinIO no longer includes the region name in the error XML
+    // assertEquals(err.region, config.region);
   },
 });
 
