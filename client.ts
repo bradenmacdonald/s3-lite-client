@@ -44,6 +44,7 @@ const metadataKeys = [
   "Content-Encoding",
   "Content-Language",
   "Expires",
+  "x-amz-checksum-sha256",
   "x-amz-grant-full-control",
   "x-amz-grant-read",
   "x-amz-grant-read-acp",
@@ -792,7 +793,14 @@ export class Client {
    */
   public async statObject(
     objectName: string,
-    options?: { bucketName?: string; versionId?: string },
+    options?: {
+      bucketName?: string;
+      versionId?: string;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
+    },
   ): Promise<ObjectStatus> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
@@ -804,11 +812,14 @@ export class Client {
     if (options?.versionId) {
       query.versionId = options.versionId;
     }
+
     const response = await this.makeRequest({
       method: "HEAD",
       bucketName,
       objectName,
       query,
+      // Add custom headers if provided
+      headers: new Headers(options?.headers),
     });
 
     const metadata: ObjectMetadata = {};

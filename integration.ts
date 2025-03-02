@@ -59,7 +59,8 @@ Deno.test({
       "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
     );
     assertEquals(err.bucketName, config.bucket);
-    assertEquals(err.region, config.region);
+    // This used to work but MinIO no longer includes the region name in the error XML
+    // assertEquals(err.region, config.region);
   },
 });
 
@@ -178,6 +179,42 @@ Deno.test({
     assertEquals(stat.size, new TextEncoder().encode(contents).length); // Size in bytes is different from the length of the string
     assertEquals(stat.versionId, null);
     assertEquals(stat.metadata, metadata);
+  },
+});
+
+Deno.test({
+  name: "statObject() can include custom headers in the request",
+  fn: async () => {
+    const key = "test-stat-with-custom-headers.txt";
+    const contents = "Testing custom headers in statObject";
+    // This is the base64 encoded SHA-256 checksum of the above contents.
+    // toBase64(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(contents))));
+    const checksumSha256 = "le9+OIGqpyujFCiCz22BYwWIeGHRx6LX2UIhz9GyeSI=";
+    const baseMetadata = {
+      "Content-Type": "text/plain",
+      "x-amz-meta-custom-header": "custom-value",
+    };
+    const metadataWithChecksum = {
+      ...baseMetadata,
+      "x-amz-checksum-sha256": checksumSha256,
+    };
+    await client.putObject(key, contents, { metadata: metadataWithChecksum });
+
+    // Test without the checksum mode header
+    const statWithout = await client.statObject(key);
+    assertEquals(statWithout.type, "Object");
+    assertEquals(statWithout.key, key);
+    assertEquals(statWithout.metadata, baseMetadata);
+
+    // Test WITH the checksum header - now the response should include the x-amz-checksum-sha256 header.
+    const statWith = await client.statObject(key, {
+      headers: {
+        "x-amz-checksum-mode": "ENABLED",
+      },
+    });
+    assertEquals(statWith.type, "Object");
+    assertEquals(statWith.key, key);
+    assertEquals(statWith.metadata, metadataWithChecksum);
   },
 });
 
