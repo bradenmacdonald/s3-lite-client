@@ -792,7 +792,14 @@ export class Client {
    */
   public async statObject(
     objectName: string,
-    options?: { bucketName?: string; versionId?: string },
+    options?: { 
+      bucketName?: string; 
+      versionId?: string;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
+    },
   ): Promise<ObjectStatus> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
@@ -804,11 +811,21 @@ export class Client {
     if (options?.versionId) {
       query.versionId = options.versionId;
     }
+    
+    const requestHeaders = new Headers();
+    // Add custom headers if provided
+    if (options?.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        requestHeaders.set(key, value);
+      }
+    }
+    
     const response = await this.makeRequest({
       method: "HEAD",
       bucketName,
       objectName,
       query,
+      headers: requestHeaders,
     });
 
     const metadata: ObjectMetadata = {};

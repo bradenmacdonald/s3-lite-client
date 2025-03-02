@@ -181,6 +181,32 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: "statObject() can include custom headers in the request",
+  fn: async () => {
+    const key = "test-stat-with-custom-headers.txt";
+    const metadata = {
+      "Content-Type": "text/plain",
+      "x-amz-meta-custom-header": "custom-value",
+    };
+    const contents = "Testing custom headers in statObject";
+    await client.putObject(key, contents, { metadata });
+    
+    // This test can't actually verify that the headers are sent correctly,
+    // since the S3 mock server doesn't validate headers. But it ensures the
+    // code doesn't throw errors when custom headers are included.
+    const stat = await client.statObject(key, {
+      headers: {
+        'x-amz-checksum-mode': 'ENABLED'
+      }
+    });
+    
+    assertEquals(stat.type, "Object");
+    assertEquals(stat.key, key);
+    assertEquals(stat.metadata, metadata);
+  },
+});
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // getObject()
 
