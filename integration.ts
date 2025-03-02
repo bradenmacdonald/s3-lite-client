@@ -539,3 +539,138 @@ Deno.test({
     await client.deleteObject(key);
   },
 });
+
+Deno.test({
+  name: "presignedPostObject",
+  fn: async () => {
+    const objectName = `test-presigned-post-${crypto.randomUUID()}`;
+    const content = "hello world";
+    const contentType = "text/plain";
+    const metadata = {
+      "Content-Type": contentType,
+      "x-amz-meta-test": "test-value",
+    };
+
+    // 1. Basic presigned POST with metadata
+    const { url, fields } = await client.presignedPostObject(objectName, {
+      expirySeconds: 600,
+      fields: metadata,
+    });
+
+    // Create form data for the upload
+    const formData = new FormData();
+    // Add all required fields from the presigned POST
+    Object.entries(fields).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    // Add the file content
+    formData.append("file", new Blob([content], { type: contentType }));
+
+    // Upload the object using the presigned POST
+    const response = await fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+
+    assertEquals(response.status, 204);
+
+    // Verify the object was uploaded correctly
+    const getResponse = await client.getObject(objectName);
+    const uploadedContent = await getResponse.text();
+    assertEquals(uploadedContent, content);
+
+    // Verify metadata was applied correctly
+    const objectStat = await client.statObject(objectName);
+    assertEquals(objectStat.metadata["Content-Type"], contentType);
+    assertEquals(objectStat.metadata["x-amz-meta-test"], "test-value");
+
+    // 2. Test with conditions - content length range
+    const objectName2 = `test-presigned-post-conditions-${crypto.randomUUID()}`;
+    const { url: url2, fields: fields2 } = await client.presignedPostObject(objectName2, {
+      expirySeconds: 600,
+      fields: { "Content-Type": contentType },
+      conditions: [
+        ["content-length-range", "1", "100"], // Content must be between 1 and 100 bytes
+      ],
+    });
+
+    const formData2 = new FormData();
+    Object.entries(fields2).forEach(([key, value]) => {
+      formData2.append(key, value);
+    });
+    formData2.append("file", new Blob([content], { type: contentType }));
+
+    const response2 = await fetch(url2, {
+      method: "POST",
+      body: formData2,
+    });
+
+    assertEquals(response2.status, 204);
+
+    // Verify
+    const getResponse2 = await client.getObject(objectName2);
+    const uploadedContent2 = await getResponse2.text();
+    assertEquals(uploadedContent2, content);
+
+    // Clean up
+    await client.deleteObject(objectName);
+    await client.deleteObject(objectName2);
+  },
+});
+
+Deno.test({
+  name: "presignedPostObject - with policy condition violations",
+  fn: async () => {
+    const objectName = `test-presigned-post-error-${crypto.randomUUID()}`;
+    const smallContent = "small";
+    const largeContent = "x".repeat(200); // 200 characters, exceeds the 100 byte limit we'll set
+    const contentType = "text/plain";
+
+    // Create presigned POST with a strict content length restriction
+    const { url, fields } = await client.presignedPostObject(objectName, {
+      expirySeconds: 600,
+      fields: { "Content-Type": contentType },
+      conditions: [
+        ["content-length-range", "1", "100"], // Content must be between 1 and 100 bytes
+      ],
+    });
+
+    // First try with valid content size - should work
+    const validFormData = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      validFormData.append(key, value);
+    });
+    validFormData.append("file", new Blob([smallContent], { type: contentType }));
+
+    const validResponse = await fetch(url, {
+      method: "POST",
+      body: validFormData,
+    });
+    assertEquals(validResponse.status, 204);
+
+    // Now try with content that violates the policy - should fail
+    const invalidFormData = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      invalidFormData.append(key, value);
+    });
+    invalidFormData.append("file", new Blob([largeContent], { type: contentType }));
+
+    const invalidResponse = await fetch(url, {
+      method: "POST",
+      body: invalidFormData,
+    });
+
+    // Should receive an error status code
+    assert(invalidResponse.status >= 400);
+
+    // Parse the error response XML to verify it's a policy violation
+    const errorXml = await invalidResponse.text();
+    assert(
+      errorXml.includes("EntityTooLarge") || errorXml.includes("MaxSizeExceeded") ||
+        errorXml.includes("ConditionFailed"),
+    );
+
+    // Clean up
+    await client.deleteObject(objectName);
+  },
+});

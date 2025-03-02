@@ -9,7 +9,7 @@ import {
   sha256digestHex,
 } from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
-import { presignV4, signV4 } from "./signing.ts";
+import { presignPostV4, presignV4, signV4 } from "./signing.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
@@ -147,6 +147,25 @@ const minimumPartSize = 5 * 1024 * 1024;
 const maximumPartSize = 5 * 1024 * 1024 * 1024;
 /** The maximum allowed object size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
 const maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
+
+/**
+ * Interface for presigned POST policy conditions
+ */
+export type PolicyCondition = Record<string, unknown> | string[];
+
+/**
+ * Interface for the result of a presigned POST request
+ */
+export interface PresignedPostResult {
+  /**
+   * The URL to POST the form to
+   */
+  url: string;
+  /**
+   * The fields to include in the form
+   */
+  fields: Record<string, string>;
+}
 
 /**
  * Client for connecting to S3-compatible object storage services.
@@ -954,6 +973,70 @@ export class Client {
       bucketName: this.getBucketName({ bucketName }),
       objectName: "",
       statusCode: 204,
+    });
+  }
+
+  /**
+   * Creates a presigned POST policy that can be used to allow browser/client uploads directly to S3.
+   * This is equivalent to AWS SDK's createPresignedPost functionality.
+   *
+   * @param objectName - Object name for which the presigned URL is generated
+   * @param options - Additional options
+   * @returns An object with url and fields that can be used to construct a form for direct uploads
+   */
+  presignedPostObject(
+    objectName: string,
+    options: {
+      /**
+       * Bucket name to use for this operation. If not specified, the default bucket name will be used.
+       */
+      bucketName?: string;
+      /**
+       * Expiry time in seconds for the presigned URL. Default is 1 hour (3600 seconds).
+       */
+      expirySeconds?: number;
+      /**
+       * Date when the presigned URL becomes valid. Default is now.
+       */
+      requestDate?: Date;
+      /**
+       * Additional policy conditions to apply.
+       * See: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
+       */
+      conditions?: PolicyCondition[];
+      /**
+       * Additional form fields to include in the policy and the result.
+       */
+      fields?: Record<string, string>;
+    } = {},
+  ): Promise<PresignedPostResult> {
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+    }
+
+    const bucketName = this.getBucketName(options);
+    if (!bucketName) {
+      throw new Error(
+        "Bucket name is required for presignedPost, but none was provided either to this method nor to the client constructor",
+      );
+    }
+
+    // Build request options
+    const requestDate = options.requestDate || new Date();
+    const expirySeconds = options.expirySeconds ?? 3600; // Default 1 hour
+
+    return presignPostV4({
+      protocol: this.protocol,
+      host: this.host,
+      bucket: bucketName,
+      objectKey: objectName,
+      accessKey: this.accessKey || "",
+      secretKey: this.#secretKey || "",
+      region: this.region,
+      date: requestDate,
+      expirySeconds,
+      conditions: options.conditions,
+      fields: options.fields,
     });
   }
 }
