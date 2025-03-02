@@ -13,8 +13,8 @@ import { presignV4, signV4 } from "./signing.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
-  /** 
-   * Hostname of the endpoint or full URL. 
+  /**
+   * Hostname of the endpoint or full URL.
    * Examples: "s3.amazonaws.com", "https://s3.eu-west-1.amazonaws.com", "http://localhost:9000"
    */
   endPoint: string;
@@ -180,14 +180,12 @@ export class Client {
         if (url.port) {
           parsedPort = parseInt(url.port, 10);
         }
-        if (url.pathname && url.pathname !== '/') {
-          parsedPathPrefix = url.pathname.endsWith('/') 
-            ? url.pathname.slice(0, -1) 
-            : url.pathname;
+        if (url.pathname && url.pathname !== "/") {
+          parsedPathPrefix = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
         }
       } catch (e) {
         throw new errors.InvalidEndpointError(
-          `Invalid endPoint URL: ${params.endPoint}`
+          `Invalid endPoint URL: ${params.endPoint}`,
         );
       }
     }
@@ -195,7 +193,7 @@ export class Client {
     // Now validate the extracted hostname
     if (typeof hostname !== "string" || hostname.length === 0) {
       throw new errors.InvalidEndpointError(
-        `Invalid endPoint: ${params.endPoint}`
+        `Invalid endPoint: ${params.endPoint}`,
       );
     }
 
