@@ -33,6 +33,7 @@ Supported functionality:
 - Delete an object: `client.deleteObject("key")`
 - Create pre-signed URLs: `client.presignedGetObject("key", options)` or
   `client.getPresignedUrl(method, "key", options)`
+- Create pre-signed POST policy: `client.presignedPostObject("key", options)` for direct browser uploads
 - Check if a bucket exists: `client.bucketExists("bucketName")`
 - Create a new bucket: `client.makeBucket("bucketName")`
 - Remove a bucket: `client.removeBucket("bucketName")`
@@ -141,6 +142,37 @@ await s3client.putObject("key", streamOrData, {
     "x-amz-meta-custom": "value",
   },
 });
+```
+
+Create a presigned POST policy for direct uploads from a browser:
+
+```ts
+// Create a presigned POST policy
+const { url, fields } = await s3client.presignedPostObject("my-file.txt", {
+  expirySeconds: 3600, // URL expires in 1 hour
+  fields: {
+    "Content-Type": "text/plain",
+  },
+});
+
+// In the browser, use the policy for direct uploads:
+const formData = new FormData();
+// Add all required fields from the presigned POST
+Object.entries(fields).forEach(([key, value]) => {
+  formData.append(key, value);
+});
+// Add the file content
+formData.append("file", fileInput.files[0]);
+
+// Upload the object using the presigned POST
+const response = await fetch(url, {
+  method: "POST",
+  body: formData,
+});
+
+if (response.ok) {
+  console.log("File uploaded successfully!");
+}
 ```
 
 For more examples, check out the tests in [`integration.ts`](./integration.ts)

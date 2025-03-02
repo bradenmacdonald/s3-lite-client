@@ -321,6 +321,110 @@ async function sha256hmac(
   return new Uint8Array(signature);
 }
 
+/**
+ * Type for S3 Post Policy conditions
+ * S3 allows conditions to have different shapes
+ */
+type PolicyCondition = Record<string, unknown> | string[];
+
+/**
+ * Generate a presigned POST policy that can be used to allow direct uploads to S3.
+ * This is equivalent to AWS SDK's presignedPost functionality.
+ */
+export async function presignPostV4(request: {
+  host: string;
+  protocol: "http:" | "https:";
+  bucket: string;
+  objectKey: string;
+  accessKey: string;
+  secretKey: string;
+  region: string;
+  date: Date;
+  expirySeconds: number;
+  conditions?: PolicyCondition[];
+  fields?: Record<string, string>;
+}): Promise<{
+  url: string;
+  fields: Record<string, string>;
+}> {
+  if (!request.accessKey) {
+    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+  }
+  if (!request.secretKey) {
+    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+  }
+  if (request.expirySeconds < 1) {
+    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
+  }
+  if (request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  }
+
+  const expiration = new Date(request.date);
+  expiration.setSeconds(expiration.getSeconds() + request.expirySeconds);
+  const iso8601ExpirationDate = expiration.toISOString();
+  const credential = getCredential(request.accessKey, request.region, request.date);
+  const iso8601Date = makeDateLong(request.date);
+
+  // Default required policy fields
+  const fields: Record<string, string> = {
+    "X-Amz-Algorithm": signV4Algorithm,
+    "X-Amz-Credential": credential,
+    "X-Amz-Date": iso8601Date,
+    "key": request.objectKey,
+    ...request.fields || {},
+  };
+
+  // Build policy document
+  const conditions: PolicyCondition[] = [
+    { bucket: request.bucket },
+    { key: request.objectKey },
+    { "X-Amz-Algorithm": signV4Algorithm },
+    { "X-Amz-Credential": credential },
+    { "X-Amz-Date": iso8601Date },
+  ];
+
+  // Add any additional conditions provided by the user
+  if (request.conditions) {
+    conditions.push(...request.conditions);
+  }
+
+  // Add additional fields as conditions
+  for (const [key, value] of Object.entries(request.fields || {})) {
+    // Skip fields that we've already added to conditions
+    if (["key", "X-Amz-Algorithm", "X-Amz-Credential", "X-Amz-Date"].includes(key)) continue;
+    conditions.push({ [key]: value });
+  }
+
+  const policy = {
+    expiration: iso8601ExpirationDate,
+    conditions,
+  };
+
+  // Convert policy to base64
+  const encoder = new TextEncoder();
+  const policyBytes = encoder.encode(JSON.stringify(policy));
+  const base64Policy = btoa(String.fromCharCode(...policyBytes));
+  fields["policy"] = base64Policy;
+
+  // Calculate signature
+  const stringToSign = base64Policy;
+  const dateKey = await sha256hmac(
+    "AWS4" + request.secretKey,
+    makeDateShort(request.date),
+  );
+  const dateRegionKey = await sha256hmac(dateKey, request.region);
+  const dateRegionServiceKey = await sha256hmac(dateRegionKey, "s3");
+  const signingKey = await sha256hmac(dateRegionServiceKey, "aws4_request");
+  const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
+  fields["X-Amz-Signature"] = signature;
+
+  // Construct the URL
+  const url = `${request.protocol}//${request.host}/${request.bucket}`;
+
+  return { url, fields };
+}
+
 // Export for testing purposes only
 export const _internalMethods = {
   awsUriEncode,
