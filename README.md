@@ -17,7 +17,8 @@ Supported functionality:
     (use `client.listObjectsGrouped(...)`)
 - Check if an object exists: `client.exists("key")`
 - Get metadata about an object: `client.statObject("key")`
-  - Can include custom headers in the request: `client.statObject("key", { headers: { 'x-amz-checksum-mode': 'ENABLED' } })`
+  - Can include custom headers in the request:
+    `client.statObject("key", { headers: { 'x-amz-checksum-mode': 'ENABLED' } })`
 - Download an object: `client.getObject("key", options)`
   - This just returns a standard HTTP `Response` object, so for large files, you can opt to consume the data as a stream
     (use the `.body` property).

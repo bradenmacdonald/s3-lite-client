@@ -792,8 +792,8 @@ export class Client {
    */
   public async statObject(
     objectName: string,
-    options?: { 
-      bucketName?: string; 
+    options?: {
+      bucketName?: string;
       versionId?: string;
       /**
        * Additional headers to include in the request
@@ -811,7 +811,7 @@ export class Client {
     if (options?.versionId) {
       query.versionId = options.versionId;
     }
-    
+
     const requestHeaders = new Headers();
     // Add custom headers if provided
     if (options?.headers) {
@@ -819,7 +819,7 @@ export class Client {
         requestHeaders.set(key, value);
       }
     }
-    
+
     const response = await this.makeRequest({
       method: "HEAD",
       bucketName,
