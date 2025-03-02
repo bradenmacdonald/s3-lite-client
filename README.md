@@ -156,7 +156,7 @@ deno fmt
 To run the integration tests, first start MinIO with this command:
 
 ```sh
-docker run --rm -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2021-10-23T03-28-24Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+docker run --rm -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
 ```
 
 Then while MinIO is running, run

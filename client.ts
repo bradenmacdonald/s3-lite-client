@@ -44,6 +44,7 @@ const metadataKeys = [
   "Content-Encoding",
   "Content-Language",
   "Expires",
+  "x-amz-checksum-sha256",
   "x-amz-grant-full-control",
   "x-amz-grant-read",
   "x-amz-grant-read-acp",
