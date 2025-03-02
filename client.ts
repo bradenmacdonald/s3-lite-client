@@ -13,12 +13,17 @@ import { presignV4, signV4 } from "./signing.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
-  /** Hostname of the endpoint. Not a URL, just the hostname with no protocol or port. */
+  /**
+   * Hostname of the endpoint or full URL.
+   * Examples: "s3.amazonaws.com", "https://s3.eu-west-1.amazonaws.com", "http://localhost:9000"
+   */
   endPoint: string;
   accessKey?: string;
   secretKey?: string;
   sessionToken?: string;
+  /** Whether to use HTTPS. Defaults to true unless http:// is explicitly specified in endPoint. */
   useSSL?: boolean | undefined;
+  /** Port to use. Will be extracted from URL if provided, otherwise defaults to 80/443 based on protocol. */
   port?: number | undefined;
   /** Default bucket name, if not specified on individual requests */
   bucket?: string;
@@ -160,23 +165,41 @@ export class Client {
   readonly pathStyle: boolean;
   readonly pathPrefix?: string;
 
-  constructor(params: ClientOptions) {
+  constructor({ endPoint, useSSL, port, pathPrefix, ...params }: Readonly<ClientOptions>) {
+    // Check if endpoint is a URL (starts with http:// or https://)
+    if (/^https?:\/\//i.test(endPoint)) {
+      if (useSSL !== undefined || port !== undefined || pathPrefix !== undefined) {
+        throw new errors.InvalidArgumentError(`useSSL/port/pathPrefix cannot be specified if endPoint is a URL.`);
+      }
+      try {
+        const url = new URL(endPoint);
+        endPoint = url.hostname; // Now this is just the hostname
+        useSSL = url.protocol === "https:";
+        port = url.port ? parseInt(url.port, 10) : (useSSL ? 443 : 80);
+        if (url.pathname && url.pathname !== "/") {
+          pathPrefix = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+        }
+      } catch {
+        throw new errors.InvalidEndpointError(`Invalid endPoint URL: ${endPoint}`);
+      }
+    }
+
+    // Now validate the extracted hostname
+    if (typeof endPoint !== "string" || endPoint.length === 0) {
+      throw new errors.InvalidEndpointError(`Invalid endPoint: ${endPoint}`);
+    }
+
     // Default values if not specified.
-    if (params.useSSL === undefined) {
-      params.useSSL = true;
+    if (useSSL === undefined) {
+      useSSL = true;
     }
-    // Validate input params.
-    if (
-      typeof params.endPoint !== "string" || params.endPoint.length === 0 ||
-      params.endPoint.indexOf("/") !== -1
-    ) {
-      throw new errors.InvalidEndpointError(
-        `Invalid endPoint : ${params.endPoint}`,
-      );
+
+    // Validate port
+    if (port !== undefined && !isValidPort(port)) {
+      throw new errors.InvalidArgumentError(`Invalid port: ${port}`);
     }
-    if (params.port !== undefined && !isValidPort(params.port)) {
-      throw new errors.InvalidArgumentError(`Invalid port : ${params.port}`);
-    }
+
+    // Validate credentials
     if (params.accessKey && !params.secretKey) {
       throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
     }
@@ -184,15 +207,15 @@ export class Client {
       throw new errors.InvalidArgumentError(`If specifying temporary access key, session token must also be provided.`);
     }
 
-    const defaultPort = params.useSSL ? 443 : 80;
-    this.port = params.port ?? defaultPort;
-    this.host = params.endPoint.toLowerCase() + (this.port !== defaultPort ? `:${params.port}` : "");
-    this.protocol = params.useSSL ? "https:" : "http:";
+    const defaultPort = useSSL ? 443 : 80;
+    this.port = port ?? defaultPort;
+    this.host = endPoint.toLowerCase() + (this.port !== defaultPort ? `:${this.port}` : "");
+    this.protocol = useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
     this.sessionToken = params.sessionToken;
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
-    this.pathPrefix = params.pathPrefix ?? "";
+    this.pathPrefix = pathPrefix ?? "";
     this.defaultBucket = params.bucket;
     this.region = params.region;
 
