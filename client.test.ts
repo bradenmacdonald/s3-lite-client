@@ -1,5 +1,7 @@
 import { assertEquals } from "@std/assert/equals";
+import { assertThrows } from "@std/assert/throws";
 import { Client } from "./client.ts";
+import { S3Errors } from "./mod.ts";
 
 Deno.test({
   name: "host/port numbers",
@@ -140,38 +142,46 @@ Deno.test({
       assertEquals(client.pathPrefix, "/my-prefix");
     });
 
-    await t.step("explicit useSSL overrides URL protocol", () => {
-      const client = new Client({
-        endPoint: "http://s3.example.com",
-        region: "us-east-1",
-        useSSL: true, // This should override the http:// in the URL
-      });
-      assertEquals(client.port, 443);
-      assertEquals(client.protocol, "https:");
-      assertEquals(client.host, "s3.example.com");
+    await t.step("useSSL conflicts with URL protocol", () => {
+      assertThrows(
+        () => {
+          new Client({
+            endPoint: "http://s3.example.com",
+            region: "us-east-1",
+            useSSL: true, // This conflicts with the http:// in the URL
+          });
+        },
+        S3Errors.InvalidArgumentError,
+        "useSSL/port/pathPrefix cannot be specified if endPoint is a URL.",
+      );
     });
 
-    await t.step("explicit port overrides URL port", () => {
-      const client = new Client({
-        endPoint: "https://s3.example.com:8443",
-        region: "us-east-1",
-        port: 9000, // This should override the port in the URL
-      });
-      assertEquals(client.port, 9000);
-      assertEquals(client.protocol, "https:");
-      assertEquals(client.host, "s3.example.com:9000");
+    await t.step("explicit port conflicts with URL port", () => {
+      assertThrows(
+        () => {
+          new Client({
+            endPoint: "https://s3.example.com:8443",
+            region: "us-east-1",
+            port: 9000, // This conflicts with the port in the URL
+          });
+        },
+        S3Errors.InvalidArgumentError,
+        "useSSL/port/pathPrefix cannot be specified if endPoint is a URL.",
+      );
     });
 
-    await t.step("explicit pathPrefix overrides URL path", () => {
-      const client = new Client({
-        endPoint: "https://example.com/from-url",
-        region: "us-east-1",
-        pathPrefix: "/from-param", // This should override the path in the URL
-      });
-      assertEquals(client.port, 443);
-      assertEquals(client.protocol, "https:");
-      assertEquals(client.host, "example.com");
-      assertEquals(client.pathPrefix, "/from-param");
+    await t.step("explicit pathPrefix conflicts with URL path", () => {
+      assertThrows(
+        () => {
+          new Client({
+            endPoint: "https://example.com/from-url",
+            region: "us-east-1",
+            pathPrefix: "/from-param", // This conflicts with the path in the URL
+          });
+        },
+        S3Errors.InvalidArgumentError,
+        "useSSL/port/pathPrefix cannot be specified if endPoint is a URL.",
+      );
     });
   },
 });

@@ -165,51 +165,36 @@ export class Client {
   readonly pathStyle: boolean;
   readonly pathPrefix?: string;
 
-  constructor(params: ClientOptions) {
-    // Parse the endpoint if it's a URL
-    let hostname = params.endPoint;
-    let protocol = params.useSSL === false ? "http:" : "https:";
-    let parsedPort: number | undefined;
-    let parsedPathPrefix: string | undefined;
-
+  constructor({ endPoint, useSSL, port, pathPrefix, ...params }: Readonly<ClientOptions>) {
     // Check if endpoint is a URL (starts with http:// or https://)
-    if (/^https?:\/\//i.test(hostname)) {
+    if (/^https?:\/\//i.test(endPoint)) {
+      if (useSSL !== undefined || port !== undefined || pathPrefix !== undefined) {
+        throw new errors.InvalidArgumentError(`useSSL/port/pathPrefix cannot be specified if endPoint is a URL.`);
+      }
       try {
-        const url = new URL(hostname);
-        hostname = url.hostname;
-        protocol = url.protocol;
-        if (url.port) {
-          parsedPort = parseInt(url.port, 10);
-        }
+        const url = new URL(endPoint);
+        endPoint = url.hostname; // Now this is just the hostname
+        useSSL = url.protocol === "https:";
+        port = url.port ? parseInt(url.port, 10) : (useSSL ? 443 : 80);
         if (url.pathname && url.pathname !== "/") {
-          parsedPathPrefix = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+          pathPrefix = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
         }
-      } catch (e) {
-        throw new errors.InvalidEndpointError(
-          `Invalid endPoint URL: ${params.endPoint}`,
-        );
+      } catch {
+        throw new errors.InvalidEndpointError(`Invalid endPoint URL: ${endPoint}`);
       }
     }
 
     // Now validate the extracted hostname
-    if (typeof hostname !== "string" || hostname.length === 0) {
-      throw new errors.InvalidEndpointError(
-        `Invalid endPoint: ${params.endPoint}`,
-      );
+    if (typeof endPoint !== "string" || endPoint.length === 0) {
+      throw new errors.InvalidEndpointError(`Invalid endPoint: ${endPoint}`);
     }
 
     // Default values if not specified.
-    if (params.useSSL === undefined) {
-      params.useSSL = protocol === "https:";
+    if (useSSL === undefined) {
+      useSSL = true;
     }
 
-    // Override protocol based on useSSL if explicitly set
-    if (params.useSSL !== undefined) {
-      protocol = params.useSSL ? "https:" : "http:";
-    }
-
-    // Validate port - explicit port takes precedence over URL port
-    const port = params.port ?? parsedPort;
+    // Validate port
     if (port !== undefined && !isValidPort(port)) {
       throw new errors.InvalidArgumentError(`Invalid port: ${port}`);
     }
@@ -222,15 +207,15 @@ export class Client {
       throw new errors.InvalidArgumentError(`If specifying temporary access key, session token must also be provided.`);
     }
 
-    const defaultPort = protocol === "https:" ? 443 : 80;
+    const defaultPort = useSSL ? 443 : 80;
     this.port = port ?? defaultPort;
-    this.host = hostname.toLowerCase() + (this.port !== defaultPort ? `:${this.port}` : "");
-    this.protocol = protocol as "https:" | "http:";
+    this.host = endPoint.toLowerCase() + (this.port !== defaultPort ? `:${this.port}` : "");
+    this.protocol = useSSL ? "https:" : "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
     this.sessionToken = params.sessionToken;
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
-    this.pathPrefix = params.pathPrefix ?? parsedPathPrefix ?? "";
+    this.pathPrefix = pathPrefix ?? "";
     this.defaultBucket = params.bucket;
     this.region = params.region;
 
