@@ -13,12 +13,17 @@ import { presignV4, signV4 } from "./signing.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
-  /** Hostname of the endpoint. Not a URL, just the hostname with no protocol or port. */
+  /**
+   * Hostname of the endpoint or full URL.
+   * Examples: "s3.amazonaws.com", "https://s3.eu-west-1.amazonaws.com", "http://localhost:9000"
+   */
   endPoint: string;
   accessKey?: string;
   secretKey?: string;
   sessionToken?: string;
+  /** Whether to use HTTPS. Defaults to true unless http:// is explicitly specified in endPoint. */
   useSSL?: boolean | undefined;
+  /** Port to use. Will be extracted from URL if provided, otherwise defaults to 80/443 based on protocol. */
   port?: number | undefined;
   /** Default bucket name, if not specified on individual requests */
   bucket?: string;
@@ -161,22 +166,55 @@ export class Client {
   readonly pathPrefix?: string;
 
   constructor(params: ClientOptions) {
-    // Default values if not specified.
-    if (params.useSSL === undefined) {
-      params.useSSL = true;
+    // Parse the endpoint if it's a URL
+    let hostname = params.endPoint;
+    let protocol = params.useSSL === false ? "http:" : "https:";
+    let parsedPort: number | undefined;
+    let parsedPathPrefix: string | undefined;
+
+    // Check if endpoint is a URL (starts with http:// or https://)
+    if (/^https?:\/\//i.test(hostname)) {
+      try {
+        const url = new URL(hostname);
+        hostname = url.hostname;
+        protocol = url.protocol;
+        if (url.port) {
+          parsedPort = parseInt(url.port, 10);
+        }
+        if (url.pathname && url.pathname !== "/") {
+          parsedPathPrefix = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+        }
+      } catch (e) {
+        throw new errors.InvalidEndpointError(
+          `Invalid endPoint URL: ${params.endPoint}`,
+        );
+      }
     }
-    // Validate input params.
-    if (
-      typeof params.endPoint !== "string" || params.endPoint.length === 0 ||
-      params.endPoint.indexOf("/") !== -1
-    ) {
+
+    // Now validate the extracted hostname
+    if (typeof hostname !== "string" || hostname.length === 0) {
       throw new errors.InvalidEndpointError(
-        `Invalid endPoint : ${params.endPoint}`,
+        `Invalid endPoint: ${params.endPoint}`,
       );
     }
-    if (params.port !== undefined && !isValidPort(params.port)) {
-      throw new errors.InvalidArgumentError(`Invalid port : ${params.port}`);
+
+    // Default values if not specified.
+    if (params.useSSL === undefined) {
+      params.useSSL = protocol === "https:";
     }
+
+    // Override protocol based on useSSL if explicitly set
+    if (params.useSSL !== undefined) {
+      protocol = params.useSSL ? "https:" : "http:";
+    }
+
+    // Validate port - explicit port takes precedence over URL port
+    const port = params.port ?? parsedPort;
+    if (port !== undefined && !isValidPort(port)) {
+      throw new errors.InvalidArgumentError(`Invalid port: ${port}`);
+    }
+
+    // Validate credentials
     if (params.accessKey && !params.secretKey) {
       throw new errors.InvalidArgumentError(`If specifying access key, secret key must also be provided.`);
     }
@@ -184,15 +222,15 @@ export class Client {
       throw new errors.InvalidArgumentError(`If specifying temporary access key, session token must also be provided.`);
     }
 
-    const defaultPort = params.useSSL ? 443 : 80;
-    this.port = params.port ?? defaultPort;
-    this.host = params.endPoint.toLowerCase() + (this.port !== defaultPort ? `:${params.port}` : "");
-    this.protocol = params.useSSL ? "https:" : "http:";
+    const defaultPort = protocol === "https:" ? 443 : 80;
+    this.port = port ?? defaultPort;
+    this.host = hostname.toLowerCase() + (this.port !== defaultPort ? `:${this.port}` : "");
+    this.protocol = protocol as "https:" | "http:";
     this.accessKey = params.accessKey;
     this.#secretKey = params.secretKey ?? "";
     this.sessionToken = params.sessionToken;
     this.pathStyle = params.pathStyle ?? true; // Default path style is true
-    this.pathPrefix = params.pathPrefix ?? "";
+    this.pathPrefix = params.pathPrefix ?? parsedPathPrefix ?? "";
     this.defaultBucket = params.bucket;
     this.region = params.region;
 
