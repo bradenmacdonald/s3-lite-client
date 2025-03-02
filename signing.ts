@@ -70,6 +70,7 @@ export async function presignV4(request: {
   path: string;
   accessKey: string;
   secretKey: string;
+  sessionToken?: string;
   region: string;
   date: Date;
   expirySeconds: number;
@@ -105,6 +106,9 @@ export async function presignV4(request: {
   newQuery.set("X-Amz-Date", iso8601Date);
   newQuery.set("X-Amz-Expires", request.expirySeconds.toString());
   newQuery.set("X-Amz-SignedHeaders", signedHeaders.join(";").toLowerCase());
+  if (request.sessionToken) {
+    newQuery.set("X-Amz-Security-Token", request.sessionToken);
+  }
   const newPath = resource + "?" + newQuery.toString().replace("+", "%20"); // Signing requires spaces become %20, never +
 
   const canonicalRequest = getCanonicalRequest(request.method, newPath, request.headers, signedHeaders, hashedPayload);

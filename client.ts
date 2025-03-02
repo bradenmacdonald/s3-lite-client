@@ -517,6 +517,7 @@ export class Client {
       path,
       accessKey: this.accessKey,
       secretKey: this.#secretKey,
+      sessionToken: this.sessionToken,
       region: this.region,
       date: requestDate,
       expirySeconds,
