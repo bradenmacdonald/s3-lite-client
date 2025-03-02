@@ -813,20 +813,13 @@ export class Client {
       query.versionId = options.versionId;
     }
 
-    const requestHeaders = new Headers();
-    // Add custom headers if provided
-    if (options?.headers) {
-      for (const [key, value] of Object.entries(options.headers)) {
-        requestHeaders.set(key, value);
-      }
-    }
-
     const response = await this.makeRequest({
       method: "HEAD",
       bucketName,
       objectName,
       query,
-      headers: requestHeaders,
+      // Add custom headers if provided
+      headers: new Headers(options?.headers),
     });
 
     const metadata: ObjectMetadata = {};
