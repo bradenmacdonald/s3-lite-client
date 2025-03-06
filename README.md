@@ -1,11 +1,17 @@
 # s3-lite-client
 
-This is a lightweight S3 client for JavaScript runtimes (Deno, Node 19+, Bun, browsers, etc.). It is designed to offer
-all the key features you may need, with no dependencies. It should work with any runtime that supports the `fetch` API,
-web streams API, and ES modules (ESM). It is implemented in TypeScript and fully typed.
+This is a lightweight S3 (object storage) client for JavaScript runtimes (Deno, Node 19+, Bun, browsers, etc.). It is
+designed to offer all the key features you may need, without bloat. It should work with any runtime that supports the
+`fetch` API, web streams API, and ES modules (ESM).
 
-This client is 100% MIT licensed, and is derived from the excellent
-[MinIO JavaScript Client](https://github.com/minio/minio-js).
+Key features:
+
+- Has no dependencies and minifies to about 21kB (< 8 kB gzipped).
+  - For comparison, the official `@aws-sdk/client-s3` has
+    [56 dependencies and weighs 399 kB (94 kB gzipped)](https://bundlephobia.com/package/@aws-sdk/client-s3@3.758.0) at
+    the time of writing.
+- Implemented in TypeScript and fully typed.
+- 100% MIT licensed, derived from the excellent [MinIO JavaScript Client](https://github.com/minio/minio-js).
 
 Supported functionality:
 

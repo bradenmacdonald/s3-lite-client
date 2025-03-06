@@ -1,0 +1,25 @@
+name: Check bundle size
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23.x
+      - name: Setup package.json
+        run: echo '{}' > package.json
+      - name: Install esbuild
+        run: npm install esbuild
+      - name: Create minified build
+        run: ./node_modules/.bin/esbuild mod.ts --bundle --minify --outfile=s3-lite-client.min.js
+      - name: Check gzipped size
+        run: gzip s3-lite-client.min.js && ls -lh s3-lite-client.min.js.gz
