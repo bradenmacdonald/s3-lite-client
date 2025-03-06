@@ -48,6 +48,27 @@ jobs:
       - name: Install dependencies
         run: bunx jsr add @std/assert@1.0.10
       - name: Convert integration test from Deno to Bun test runner
-        run: '(echo -e ''import { test } from "bun:test";\nconst Deno = { test: ({fn}: {fn: () => void, name: string}) => test(fn) };''; cat integration.ts ) > integration-bun.ts'
+        run: '(echo -e ''import { test } from "bun:test";\nconst Deno = { test: ({fn, name}: {fn: () => void, name: string}) => test(name, fn) };''; cat integration.ts ) > integration-bun.ts'
       - name: Run integration tests with bun
         run: bun test ./integration-bun.ts
+
+  test-node:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23.x
+      - name: Start MinIO for integration tests
+        run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+      - name: Configure JSR
+        run: echo '@jsr:registry=https://npm.jsr.io' > .npmrc
+      - name: Setup package.json
+        run: echo '{"dependencies":{"@std/assert":"npm:@jsr/std__assert","@std/io":"npm:@jsr/std__io"},"type":"module"}' > package.json
+      - name: Install Deps
+        run: npm install
+      - name: Convert integration test from Deno to Node test runner
+        run: '(echo -e ''import { test } from "node:test";\nconst Deno = { test: ({fn, name}: {fn: () => void, name: string}) => test(name, fn) };''; cat integration.ts ) > integration-node.ts'
+      - name: Run integration tests with Node
+        run: node --test --no-warnings=ExperimentalWarning --experimental-transform-types ./integration-node.ts
