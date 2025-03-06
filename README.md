@@ -1,8 +1,8 @@
 # s3-lite-client
 
-This is a lightweight S3 client for Deno and other modern JavaScript runtimes. It is designed to offer all the key
-features you may need, with no dependencies. It does not use any Deno-specific features, so it should work with any
-runtime that supports the `fetch` API, web streams API, and ES modules (ESM).
+This is a lightweight S3 client for JavaScript runtimes (Deno, Node 19+, Bun, browsers, etc.). It is designed to offer
+all the key features you may need, with no dependencies. It should work with any runtime that supports the `fetch` API,
+web streams API, and ES modules (ESM). It is implemented in TypeScript and fully typed.
 
 This client is 100% MIT licensed, and is derived from the excellent
 [MinIO JavaScript Client](https://github.com/minio/minio-js).
@@ -57,8 +57,6 @@ Supported functionality:
     const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.0");
   </script>
   ```
-
-Note: if you're using Node.js, this only works on Node 19+.
 
 ## Usage Examples (Quickstart)
 
