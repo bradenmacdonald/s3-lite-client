@@ -413,7 +413,7 @@ export class Client {
   /**
    * Check if an object with the specified key exists.
    */
-  public async exists(objectName: string, options?: { bucketName?: string; versionId?: string }): Promise<boolean> {
+  public async exists(objectName: string, options?: { bucketName?: string; versionId?: string; headers?: Record<string, string>; }): Promise<boolean> {
     try {
       await this.statObject(objectName, options);
       return true;
