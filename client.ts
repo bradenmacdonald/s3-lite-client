@@ -79,13 +79,13 @@ const metadataKeys = [
 export type ObjectMetadata =
   & {
     "x-amz-acl"?:
-    | "private"
-    | "public-read"
-    | "public-read-write"
-    | "authenticated-read"
-    | "aws-exec-read"
-    | "bucket-owner-read"
-    | "bucket-owner-full-control";
+      | "private"
+      | "public-read"
+      | "public-read-write"
+      | "authenticated-read"
+      | "aws-exec-read"
+      | "bucket-owner-read"
+      | "bucket-owner-full-control";
   }
   & { [K in typeof metadataKeys[number]]?: string }
   & { [customMetadata: `x-amz-meta-${string}`]: string };
@@ -364,7 +364,7 @@ export class Client {
           response.status,
           "UnexpectedRedirect",
           `The server unexpectedly returned a redirect response. With AWS S3, this usually means you need to use a ` +
-          `region-specific endpoint like "s3.us-west-2.amazonaws.com" instead of "s3.amazonaws.com"`,
+            `region-specific endpoint like "s3.us-west-2.amazonaws.com" instead of "s3.amazonaws.com"`,
         );
       }
       throw new errors.ServerError(
