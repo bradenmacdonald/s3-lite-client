@@ -275,23 +275,23 @@ Deno.test({
   fn: async () => {
     const objectName = "apps/com.demo.app/3.0.125+b.1549437.master.f5d735b49.zip";
     const contents = "This is test content for plus sign encoding";
-    
+
     // Upload the object
     await client.putObject(objectName, contents);
-    
+
     // Download it back to verify it works
     const response = await client.getObject(objectName);
     assertEquals(await response.text(), contents);
-    
+
     // Test presigned URL contains proper encoding
     const presignedUrl = await client.presignedGetObject(objectName);
     assertEquals(presignedUrl.includes("+"), false, "Presigned URL should not contain unencoded '+' character");
     assertEquals(presignedUrl.includes("%2B"), true, "Presigned URL should contain URL-encoded '+' as '%2B'");
-    
+
     // Test that the presigned URL actually works
     const presignedResponse = await fetch(presignedUrl);
     assertEquals(await presignedResponse.text(), contents);
-    
+
     // Clean up
     await client.deleteObject(objectName);
   },

@@ -262,23 +262,23 @@ export class Client {
     return bucketName;
   }
 
-  /** 
+  /**
    * Encode the request path for the actual HTTP request.
    * This encodes special characters while preserving the path structure.
    */
   private encodeRequestPath(path: string): string {
     const [pathPart, queryPart] = path.split("?", 2);
-    
+
     // Split the path into components and encode each part separately
     const pathSegments = pathPart.split("/");
     const encodedSegments = pathSegments.map((segment, index) => {
       // Don't encode empty segments (like the leading "/" or path separators)
       if (segment === "") return segment;
-      
+
       // For the bucket and path prefix segments, don't encode them
       // Only encode the object name segments
       if (this.pathStyle && this.pathPrefix) {
-        const prefixSegments = this.pathPrefix.split("/").filter(s => s !== "");
+        const prefixSegments = this.pathPrefix.split("/").filter((s) => s !== "");
         // Skip pathPrefix segments and bucket segment
         if (index <= prefixSegments.length + 1) {
           return segment;
@@ -289,11 +289,11 @@ export class Client {
           return segment;
         }
       }
-      
+
       // Encode the object name parts
       return encodeURIComponent(segment);
     });
-    
+
     const encodedPath = encodedSegments.join("/");
     return queryPart ? `${encodedPath}?${queryPart}` : encodedPath;
   }
@@ -318,7 +318,7 @@ export class Client {
     const queryAsString = typeof options.query === "object"
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
-    
+
     // For signature calculation, use unencoded object name (AWS signature will handle encoding)
     // For the actual HTTP request, we'll encode it in makeRequest method
     const path =

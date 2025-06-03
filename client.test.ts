@@ -193,14 +193,18 @@ Deno.test({
         accessKey: "test-access-key",
         secretKey: "test-secret-key",
       });
-      
+
       const objectName = "apps/test.app.com/3.0.125+b.1549437.master.f5d735b49.zip";
       const presignedUrl = await client.getPresignedUrl("GET", objectName);
-      
+
       // The URL should contain %2B instead of + for proper URL encoding
       assertEquals(presignedUrl.includes("+"), false, "Presigned URL should not contain unencoded '+' character");
       assertEquals(presignedUrl.includes("%2B"), true, "Presigned URL should contain URL-encoded '+' as '%2B'");
-      assertEquals(presignedUrl.includes("/test-bucket/apps/test.app.com/3.0.125%2Bb.1549437.master.f5d735b49.zip"), true, "URL should contain properly encoded object path");
+      assertEquals(
+        presignedUrl.includes("/test-bucket/apps/test.app.com/3.0.125%2Bb.1549437.master.f5d735b49.zip"),
+        true,
+        "URL should contain properly encoded object path",
+      );
     });
   },
 });

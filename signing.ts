@@ -115,7 +115,7 @@ export async function presignV4(request: {
   const stringToSign = await getStringToSign(canonicalRequest, request.date, request.region);
   const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
   const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
-  
+
   // Encode the resource path for the final URL while keeping the query string as-is
   const encodedResource = awsUriEncode(resource, true);
   const finalPath = encodedResource + "?" + newQuery.toString().replace("+", "%20") + "&X-Amz-Signature=" + signature;
