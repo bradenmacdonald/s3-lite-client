@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
@@ -39,14 +39,14 @@ jobs:
     steps:
       - name: Setup repo
         uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - name: Start MinIO for integration tests
         run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
       # TODO: can we get jsr to load the dependency versions from deno.jsonc?
       - name: Install dependencies
-        run: bunx jsr add @std/assert@1.0.10
+        run: bunx jsr add @std/assert@1.0.13
       - name: Convert integration test from Deno to Bun test runner
         run: '(echo -e ''import { test } from "bun:test";\nconst Deno = { test: ({fn, name}: {fn: () => void, name: string}) => test(name, fn) };''; cat integration.ts ) > integration-bun.ts'
       - name: Run integration tests with bun
@@ -59,7 +59,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 23.x
+          node-version: 24.x
       - name: Start MinIO for integration tests
         run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
       - name: Configure JSR
