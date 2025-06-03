@@ -183,5 +183,28 @@ Deno.test({
         "useSSL/port/pathPrefix cannot be specified if endPoint is a URL.",
       );
     });
+
+    // Test for object name URL encoding
+    await t.step("object name with plus sign requires encoding", async () => {
+      const client = new Client({
+        endPoint: "s3.amazonaws.com",
+        region: "us-east-1",
+        bucket: "test-bucket",
+        accessKey: "test-access-key",
+        secretKey: "test-secret-key",
+      });
+
+      const objectName = "apps/test.app.com/3.0.125+b[TEST,75].f5d735b49.zip";
+      const presignedUrl = await client.getPresignedUrl("GET", objectName);
+
+      // The URL should contain %2B instead of + for proper URL encoding
+      assertEquals(presignedUrl.includes("+"), false, "Presigned URL should not contain unencoded '+' character");
+      assertEquals(presignedUrl.includes("%2B"), true, "Presigned URL should contain URL-encoded '+' as '%2B'");
+      assertEquals(
+        presignedUrl.includes("/test-bucket/apps/test.app.com/3.0.125%2Bb%5BTEST%2C75%5D.f5d735b49.zip"),
+        true,
+        "URL should contain properly encoded object path",
+      );
+    });
   },
 });

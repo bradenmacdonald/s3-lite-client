@@ -109,13 +109,22 @@ export async function presignV4(request: {
   if (request.sessionToken) {
     newQuery.set("X-Amz-Security-Token", request.sessionToken);
   }
-  const newPath = resource + "?" + newQuery.toString().replace("+", "%20"); // Signing requires spaces become %20, never +
+  const newQueryString = newQuery.toString().replace("+", "%20"); // Signing requires spaces become %20, never +
+  const signingPath = resource + "?" + newQueryString;
+  const encodedPath = resource.split("/").map((part) => encodeURIComponent(part)).join("/");
 
-  const canonicalRequest = getCanonicalRequest(request.method, newPath, request.headers, signedHeaders, hashedPayload);
+  const canonicalRequest = getCanonicalRequest(
+    request.method,
+    signingPath,
+    request.headers,
+    signedHeaders,
+    hashedPayload,
+  );
   const stringToSign = await getStringToSign(canonicalRequest, request.date, request.region);
   const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
   const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
-  const presignedUrl = `${request.protocol}//${request.headers.get("Host")}${newPath}&X-Amz-Signature=${signature}`;
+  // deno-fmt-ignore
+  const presignedUrl = `${request.protocol}//${request.headers.get("Host")}${encodedPath}?${newQueryString}&X-Amz-Signature=${signature}`;
   return presignedUrl;
 }
 
