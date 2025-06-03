@@ -262,6 +262,42 @@ export class Client {
     return bucketName;
   }
 
+  /** 
+   * Encode the request path for the actual HTTP request.
+   * This encodes special characters while preserving the path structure.
+   */
+  private encodeRequestPath(path: string): string {
+    const [pathPart, queryPart] = path.split("?", 2);
+    
+    // Split the path into components and encode each part separately
+    const pathSegments = pathPart.split("/");
+    const encodedSegments = pathSegments.map((segment, index) => {
+      // Don't encode empty segments (like the leading "/" or path separators)
+      if (segment === "") return segment;
+      
+      // For the bucket and path prefix segments, don't encode them
+      // Only encode the object name segments
+      if (this.pathStyle && this.pathPrefix) {
+        const prefixSegments = this.pathPrefix.split("/").filter(s => s !== "");
+        // Skip pathPrefix segments and bucket segment
+        if (index <= prefixSegments.length + 1) {
+          return segment;
+        }
+      } else if (this.pathStyle) {
+        // Skip bucket segment
+        if (index <= 1) {
+          return segment;
+        }
+      }
+      
+      // Encode the object name parts
+      return encodeURIComponent(segment);
+    });
+    
+    const encodedPath = encodedSegments.join("/");
+    return queryPart ? `${encodedPath}?${queryPart}` : encodedPath;
+  }
+
   /**
    * Common code used for both "normal" requests and presigned UTL requests
    */
@@ -283,11 +319,10 @@ export class Client {
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
     
-    // URL encode the object name to handle special characters like +
-    const encodedObjectName = encodeURIComponent(options.objectName).replace(/%2F/g, "/");
-    
+    // For signature calculation, use unencoded object name (AWS signature will handle encoding)
+    // For the actual HTTP request, we'll encode it in makeRequest method
     const path =
-      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${encodedObjectName}` : `/${encodedObjectName}`) +
+      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
     return { headers, host, path };
   }
@@ -350,7 +385,9 @@ export class Client {
       );
     }
 
-    const fullUrl = `${this.protocol}//${host}${path}`;
+    // For the actual HTTP request, encode the path properly to handle special characters
+    const encodedPath = this.encodeRequestPath(path);
+    const fullUrl = `${this.protocol}//${host}${encodedPath}`;
 
     const response = await fetch(fullUrl, {
       method,
