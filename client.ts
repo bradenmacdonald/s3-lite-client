@@ -282,8 +282,12 @@ export class Client {
     const queryAsString = typeof options.query === "object"
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
+    
+    // URL encode the object name to handle special characters like +
+    const encodedObjectName = encodeURIComponent(options.objectName).replace(/%2F/g, "/");
+    
     const path =
-      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
+      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${encodedObjectName}` : `/${encodedObjectName}`) +
       (queryAsString ? `?${queryAsString}` : "");
     return { headers, host, path };
   }
