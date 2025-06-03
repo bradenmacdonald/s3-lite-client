@@ -10,14 +10,11 @@ import { assertRejects } from "@std/assert/rejects";
 import { S3Client, S3Errors } from "./mod.ts";
 
 const config = {
-  endPoint: "localhost",
-  port: 9000,
-  useSSL: false,
+  endPoint: "http://localhost:9000",
   region: "dev-region",
   accessKey: "AKIA_DEV",
   secretKey: "secretkey",
   bucket: "dev-bucket",
-  pathStyle: true,
 };
 const client = new S3Client(config);
 
