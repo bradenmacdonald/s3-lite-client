@@ -14,17 +14,14 @@ import { parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
   /**
-   * Hostname of the endpoint or full URL.
-   * Examples: "s3.amazonaws.com", "https://s3.eu-west-1.amazonaws.com", "http://localhost:9000"
+   * The full URL of the S3 endpoint. Can also be just the hostname (deprecated).
+   * Examples: "https://s3.eu-west-1.amazonaws.com", "http://localhost:9000"
    */
   endPoint: string;
   accessKey?: string;
   secretKey?: string;
+  /** If using temporary credentials, a session token is required. Otherwise you don't need this. */
   sessionToken?: string;
-  /** Whether to use HTTPS. Defaults to true unless http:// is explicitly specified in endPoint. */
-  useSSL?: boolean | undefined;
-  /** Port to use. Will be extracted from URL if provided, otherwise defaults to 80/443 based on protocol. */
-  port?: number | undefined;
   /** Default bucket name, if not specified on individual requests */
   bucket?: string;
   /** Region to use, e.g. "us-east-1" */
@@ -32,8 +29,20 @@ export interface ClientOptions {
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key (default: true) */
   pathStyle?: boolean | undefined;
   /**
+   * Whether to use HTTPS. Defaults to true unless http:// is explicitly specified in endPoint.
+   * @deprecated Pass in a complete URL to `endPoint` instead, including 'https://' or 'http://'
+   */
+  useSSL?: boolean | undefined;
+  /**
+   * Port to use. Will be extracted from URL if provided, otherwise defaults to 80/443 based on protocol.
+   * @deprecated Pass in a complete URL to `endPoint` instead, including a port number if needed.
+   */
+  port?: number | undefined;
+  /**
    * Path prefix. Usually not required, but some API servers like Supabase S3 need this.
    * e.g. If docs say "S3 Storage URL: http://127.0.0.1:54321/storage/v1/s3" then pathPrefix is "/storage/v1/s3"
+   *
+   * @deprecated Pass in a complete URL to `endPoint` instead.
    */
   pathPrefix?: string;
 }
@@ -263,7 +272,7 @@ export class Client {
   }
 
   /**
-   * Common code used for both "normal" requests and presigned UTL requests
+   * Common code used for both "normal" requests and presigned URL requests
    */
   private buildRequestOptions(options: {
     objectName: string;
