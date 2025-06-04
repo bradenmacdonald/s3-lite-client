@@ -24,12 +24,13 @@ const multipartTagAlongMetadataKeys = [
 export class ObjectUploader extends WritableStream<Uint8Array> {
   public readonly getResult: () => UploadedObjectInfo;
 
-  constructor({ client, bucketName, objectName, partSize, metadata }: {
+  constructor({ client, bucketName, objectName, partSize, metadata, headers }: {
     client: Client;
     bucketName: string;
     objectName: string;
     partSize: number;
     metadata: Record<string, string>;
+    headers: Record<string, string>;
   }) {
     let result: UploadedObjectInfo;
     let nextPartNumber = 1;
@@ -53,6 +54,7 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
                 // Set user metadata as this is not a multipart upload
                 ...metadata,
                 "Content-Length": String(chunk.length),
+                ...headers,
               }),
               bucketName,
               objectName,
