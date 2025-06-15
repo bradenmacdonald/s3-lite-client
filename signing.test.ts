@@ -149,6 +149,25 @@ Deno.test({
         "host;other-header;third-header\n" +
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     );
+    assertEquals(
+      getCanonicalRequest(
+        "GET",
+        "/object123?" + new URLSearchParams({
+          "ሴ": "bar",
+          "unreserved": "-._~",
+        }).toString(),
+        new Headers(),
+        [],
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      ),
+      "GET\n" +
+        "/object123\n" +
+        "%E1%88%B4=bar&unreserved=-._~\n" +
+        "\n" +
+        "\n" +
+        "\n" +
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
   },
 });
 
