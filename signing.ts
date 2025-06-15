@@ -253,8 +253,12 @@ function getCanonicalRequest(
   if (requestQuery) {
     requestQuery = requestQuery
       .split("&")
-      .sort()
-      .map((element) => element.indexOf("=") === -1 ? element + "=" : element)
+      .map((element) => {
+        const [key, val] = element.split("=", 2);
+        // The input is assumed to be encoded, so we need to decode it first.
+        return awsUriEncode(decodeURIComponent(key)) + "=" + awsUriEncode(decodeURIComponent(val || ""));
+      })
+      .sort() // sort after encoding
       .join("&");
   } else {
     requestQuery = "";

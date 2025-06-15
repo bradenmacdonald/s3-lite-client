@@ -91,14 +91,14 @@ export class ObjectUploader extends WritableStream<Uint8Array> {
             bucketName: bucketName,
             objectName: objectName,
             payload: chunk,
-          });
-          partPromise.then((response) => {
+          }).then((response) => {
             // In order to aggregate the parts together, we need to collect the etags.
             let etag = response.headers.get("etag") ?? "";
             if (etag) {
               etag = etag.replace(/^"/, "").replace(/"$/, "");
             }
             etags.push({ part: partNumber, etag });
+            return response;
           });
           partsPromises.push(partPromise);
         } catch (err) {
