@@ -1,5 +1,5 @@
 import * as errors from "./errors.ts";
-import { bin2hex, getScope, makeDateLong, makeDateShort, sha256digestHex } from "./helpers.ts";
+import { bin2hex, getScope, makeDateLong, makeDateShort, sha256digestHex, type Uint8Array_ } from "./helpers.ts";
 
 const signV4Algorithm = "AWS4-HMAC-SHA256";
 
@@ -295,7 +295,7 @@ async function getSigningKey(
   date: Date,
   region: string,
   secretKey: string,
-): Promise<Uint8Array> {
+): Promise<Uint8Array_> {
   const dateLine = makeDateShort(date);
   const hmac1 = await sha256hmac("AWS4" + secretKey, dateLine);
   const hmac2 = await sha256hmac(hmac1, region);
@@ -315,9 +315,9 @@ function getCredential(accessKey: string, region: string, requestDate: Date) {
  * @returns
  */
 async function sha256hmac(
-  secretKey: Uint8Array | string,
-  data: Uint8Array | string,
-): Promise<Uint8Array> {
+  secretKey: Uint8Array_ | string,
+  data: Uint8Array_ | string,
+): Promise<Uint8Array_> {
   const enc = new TextEncoder();
   const keyObject = await crypto.subtle.importKey(
     "raw", // raw format of the key - should be Uint8Array
@@ -385,7 +385,7 @@ export async function presignPostV4(request: {
     "X-Amz-Credential": credential,
     "X-Amz-Date": iso8601Date,
     "key": request.objectKey,
-    ...request.fields || {},
+    ...request.fields,
   };
 
   // Build policy document

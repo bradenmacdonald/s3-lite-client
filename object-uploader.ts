@@ -1,5 +1,5 @@
 import type { Client, ObjectMetadata, UploadedObjectInfo } from "./client.ts";
-import { getVersionId, sanitizeETag } from "./helpers.ts";
+import { getVersionId, sanitizeETag, type Uint8Array_ } from "./helpers.ts";
 import { parse as parseXML } from "./xml-parser.ts";
 
 // Metadata headers that must be included in each part of a multi-part upload
@@ -21,7 +21,7 @@ const multipartTagAlongMetadataKeys = [
  * will decide based on the size of the first chunk whether it is doing a
  * single-request upload or a multi-part upload.
  */
-export class ObjectUploader extends WritableStream<Uint8Array> {
+export class ObjectUploader extends WritableStream<Uint8Array_> {
   public readonly getResult: () => UploadedObjectInfo;
 
   constructor({ client, bucketName, objectName, partSize, metadata }: {

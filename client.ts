@@ -7,6 +7,7 @@ import {
   makeDateLong,
   sanitizeETag,
   sha256digestHex,
+  type Uint8Array_,
 } from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
 import { presignPostV4, presignV4, signV4 } from "./signing.ts";
@@ -309,7 +310,7 @@ export class Client {
     /** The status code we expect the server to return */
     statusCode?: number;
     /** The request body */
-    payload?: Uint8Array | string;
+    payload?: Uint8Array_ | string;
     /**
      * returnBody: We have to read the request body to avoid leaking resources.
      * So by default this method will read and ignore the body. If you actually

@@ -1,3 +1,11 @@
+/**
+ * For TypeScript 5.7+ we have to write `Uint8Array<ArrayBuffer>` instead of
+ * `Uint8Array` or we'll get type errors in various places where arrays based
+ * on SharedArrayBuffer are not allowed. This type alias will work both pre-
+ * and post- TypeScript 5.7. Yes this is annoying.
+ */
+export type Uint8Array_ = ReturnType<Uint8Array["slice"]>;
+
 export function isValidPort(port: number) {
   // verify if port is a number.
   if (typeof port !== "number" || isNaN(port)) {
@@ -115,7 +123,7 @@ export function getScope(region: string, date: Date) {
   return `${makeDateShort(date)}/${region}/s3/aws4_request`;
 }
 
-export async function sha256digestHex(data: Uint8Array | string) {
+export async function sha256digestHex(data: Uint8Array_ | string) {
   if (!(data instanceof Uint8Array)) {
     data = new TextEncoder().encode(data);
   }
