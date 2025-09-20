@@ -35,7 +35,10 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
     let nextPartNumber = 1;
     let uploadId: string;
     const etags: { part: number; etag: string }[] = [];
-    const partsPromises: Promise<Response>[] = []; // If doing multi-part upload, this holds a promise for each part so we can upload them in parallel
+    /** If an error occurs during multi-part uploads, we temporarily store it here. */
+    let multiUploadError: Error | undefined;
+    /** If doing multi-part upload, this holds a promise for each part so we can upload them in parallel */
+    const partsPromises: Promise<Response | void>[] = [];
 
     super({
       start() {}, // required
@@ -100,7 +103,17 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
             etags.push({ part: partNumber, etag });
             return response;
           });
-          partsPromises.push(partPromise);
+          // We can't `await partPromise` now, because that will cause the uploads to
+          // happen in series instead of parallel. But we don't want to let the promise
+          // throw an exception when we haven't awaited it, because that can cause the
+          // process to crash. So use .catch() to watch for errors and store them in
+          // `multiUploadError` if they occur.
+          partsPromises.push(partPromise.catch((err) => {
+            // An error occurred when uploading this one part:
+            if (!multiUploadError) {
+              multiUploadError = err;
+            }
+          }));
         } catch (err) {
           // Throwing an error will make future writes to this sink fail.
           throw err;
@@ -110,8 +123,12 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
         if (result) {
           // This was already completed, in a single upload. Nothing more to do.
         } else if (uploadId) {
-          // Wait for all parts to finish uploading
+          // Wait for all parts to finish uploading (or fail)
           await Promise.all(partsPromises);
+          if (multiUploadError) {
+            // One or more parts failed to upload:
+            throw multiUploadError;
+          }
           // Sort the etags (required)
           etags.sort((a, b) => a.part > b.part ? 1 : -1);
           // Complete the multi-part upload
