@@ -397,7 +397,15 @@ export class Client {
    */
   async deleteObject(
     objectName: string,
-    options: { bucketName?: string; versionId?: string; governanceBypass?: boolean } = {},
+    options: {
+      bucketName?: string;
+      versionId?: string;
+      governanceBypass?: boolean;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
+    } = {},
   ) {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
@@ -405,7 +413,7 @@ export class Client {
     }
 
     const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
-    const headers = new Headers();
+    const headers = new Headers(options.headers ?? {});
     if (options.governanceBypass) {
       headers.set("X-Amz-Bypass-Governance-Retention", "true");
     }
@@ -451,6 +459,10 @@ export class Client {
       bucketName?: string;
       versionId?: string;
       responseParams?: ResponseOverrideParams;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     },
   ): Promise<Response> {
     return this.getPartialObject(objectName, { ...options, offset: 0, length: 0 });
@@ -472,6 +484,10 @@ export class Client {
       bucketName?: string;
       versionId?: string;
       responseParams?: ResponseOverrideParams;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     },
   ): Promise<Response> {
     const bucketName = this.getBucketName(options);
@@ -481,7 +497,8 @@ export class Client {
       );
     }
 
-    const headers = new Headers(Object.entries(options.metadata ?? {}));
+    const init = { ...options?.headers, ...options?.metadata };
+    const headers = new Headers(init);
     let statusCode = 200; // Expected status code
     if (offset || length) {
       let range = "";
@@ -596,6 +613,10 @@ export class Client {
        * This will not affect the shape of the result, just its efficiency.
        */
       pageSize?: number;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     } = {},
   ): AsyncGenerator<S3Object, void, undefined> {
     for await (const result of this.listObjectsGrouped({ ...options, delimiter: "" })) {
@@ -627,6 +648,10 @@ export class Client {
        * This will not affect the shape of the result, just its efficiency.
        */
       pageSize?: number;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     },
   ): AsyncGenerator<S3Object | CommonPrefix, void, undefined> {
     const bucketName = this.getBucketName(options);
@@ -655,6 +680,7 @@ export class Client {
           "max-keys": String(maxKeys),
           ...(continuationToken ? { "continuation-token": continuationToken } : {}),
         },
+        headers: new Headers(options.headers ?? {}),
         returnBody: true,
       });
       const responseText = await pageResponse.text();
@@ -729,6 +755,10 @@ export class Client {
        * This is a minimum; larger part sizes may be required for large uploads or if the total size is unknown.
        */
       partSize?: number;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     },
   ): Promise<UploadedObjectInfo> {
     const bucketName = this.getBucketName(options);
@@ -807,6 +837,7 @@ export class Client {
       objectName,
       partSize,
       metadata: options?.metadata ?? {},
+      headers: options?.headers ?? {},
     });
     // stream => chunker => uploader
     await stream.pipeThrough(chunker).pipeTo(uploader);
@@ -875,7 +906,7 @@ export class Client {
       objectName,
       query,
       // Add custom headers if provided
-      headers: new Headers(options?.headers),
+      headers: new Headers(options?.headers ?? {}),
     });
 
     const metadata: ObjectMetadata = {};
@@ -912,6 +943,10 @@ export class Client {
       bucketName?: string;
       /** Metadata for the new object. If not specified, metadata will be copied from the source. */
       metadata?: ObjectMetadata;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
     },
   ): Promise<CopiedObjectInfo> {
     const bucketName = this.getBucketName(options);
@@ -925,7 +960,8 @@ export class Client {
     let xAmzCopySource = `${sourceBucketName}/${source.sourceKey}`;
     if (source.sourceVersionId) xAmzCopySource += `?versionId=${source.sourceVersionId}`;
 
-    const headers = new Headers(options?.metadata);
+    const init = { ...options?.headers, ...options?.metadata };
+    const headers = new Headers(init);
     if (options?.metadata !== undefined) {
       headers.set("x-amz-metadata-directive", "REPLACE");
     }
