@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert/equals";
 import { bin2hex } from "./helpers.ts";
-import { _internalMethods as methods, presignV4, signV4 } from "./signing.ts";
+import { _internalMethods as methods, presignPostV4, presignV4, signV4 } from "./signing.ts";
 
 const {
   awsUriEncode,
@@ -79,6 +79,77 @@ Deno.test({
     assertEquals(
       urlActual,
       "https://localhost:9000/bucket/object?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA_TEST_ACCESS_KEY%2F20211026%2Fca-central-1%2Fs3%2Faws4_request&X-Amz-Date=20211026T180728Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=def1ddcb522798495b6b72970222eceef7d6070f131d12d819b81fb308503dfe",
+    );
+  },
+});
+
+Deno.test({
+  name: "presignPostV4 - test 1",
+  fn: async () => {
+    const result = await presignPostV4({
+      protocol: "https:",
+      objectKey: "object/key",
+      host: "localhost:9000", // was "headers.host"
+      bucket: "bucket",
+      accessKey: "AKIA_TEST_ACCESS_KEY",
+      secretKey: "ThisIsTheSecret",
+      region: "ca-central-1",
+      date: new Date("2021-10-26T18:07:28.492Z"),
+      expirySeconds: 60 * 60,
+    });
+    assertEquals(
+      result,
+      {
+        url: "https://localhost:9000/bucket",
+        fields: {
+          "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+          "X-Amz-Credential": "AKIA_TEST_ACCESS_KEY/20211026/ca-central-1/s3/aws4_request",
+          "X-Amz-Date": "20211026T180728Z",
+          "X-Amz-Signature": "dcb50728314b09118100a74c8093dc0b5861ffa79666382c79df5ecc66c978d8",
+          key: "object/key",
+          policy:
+            "eyJleHBpcmF0aW9uIjoiMjAyMS0xMC0yNlQxOTowNzoyOC40OTJaIiwiY29uZGl0aW9ucyI6W3siYnVja2V0IjoiYnVja2V0In0seyJrZXkiOiJvYmplY3Qva2V5In0seyJYLUFtei1BbGdvcml0aG0iOiJBV1M0LUhNQUMtU0hBMjU2In0seyJYLUFtei1DcmVkZW50aWFsIjoiQUtJQV9URVNUX0FDQ0VTU19LRVkvMjAyMTEwMjYvY2EtY2VudHJhbC0xL3MzL2F3czRfcmVxdWVzdCJ9LHsiWC1BbXotRGF0ZSI6IjIwMjExMDI2VDE4MDcyOFoifV19",
+        },
+      },
+    );
+  },
+});
+
+Deno.test({
+  name: "presignPostV4 - test 2",
+  fn: async () => {
+    const result = await presignPostV4({
+      protocol: "https:",
+      objectKey: "foo/bar/tribble",
+      host: "localhost:9000", // was "headers.host"
+      bucket: "bucket",
+      accessKey: "AKIA_TEST_ACCESS_KEY",
+      secretKey: "ThisIsTheSecret",
+      region: "ca-central-1",
+      date: new Date("2021-10-26T18:07:28.492Z"),
+      expirySeconds: 60 * 60,
+      fields: {
+        "custom-field1": "cf1-value",
+      },
+      conditions: [
+        ["starts-with", "$key", "foo/bar"],
+      ],
+    });
+    assertEquals(
+      result,
+      {
+        url: "https://localhost:9000/bucket",
+        fields: {
+          "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+          "X-Amz-Credential": "AKIA_TEST_ACCESS_KEY/20211026/ca-central-1/s3/aws4_request",
+          "X-Amz-Date": "20211026T180728Z",
+          "X-Amz-Signature": "f93baf6c6f2973cd7a96912345a968420e72df398fc95526f44c3d936abba6e6",
+          "custom-field1": "cf1-value",
+          key: "foo/bar/tribble",
+          policy:
+            "eyJleHBpcmF0aW9uIjoiMjAyMS0xMC0yNlQxOTowNzoyOC40OTJaIiwiY29uZGl0aW9ucyI6W3siYnVja2V0IjoiYnVja2V0In0seyJrZXkiOiJmb28vYmFyL3RyaWJibGUifSx7IlgtQW16LUFsZ29yaXRobSI6IkFXUzQtSE1BQy1TSEEyNTYifSx7IlgtQW16LUNyZWRlbnRpYWwiOiJBS0lBX1RFU1RfQUNDRVNTX0tFWS8yMDIxMTAyNi9jYS1jZW50cmFsLTEvczMvYXdzNF9yZXF1ZXN0In0seyJYLUFtei1EYXRlIjoiMjAyMTEwMjZUMTgwNzI4WiJ9LFsic3RhcnRzLXdpdGgiLCIka2V5IiwiZm9vL2JhciJdLHsiY3VzdG9tLWZpZWxkMSI6ImNmMS12YWx1ZSJ9XX0=",
+        },
+      },
     );
   },
 });
