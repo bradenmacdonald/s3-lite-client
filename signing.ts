@@ -261,14 +261,15 @@ function getCanonicalRequest(
     requestQuery = "";
   }
 
-  const canonical = [];
-  canonical.push(method.toUpperCase());
-  canonical.push(awsUriEncode(requestResource, true));
-  canonical.push(requestQuery);
-  canonical.push(headersArray.join("\n") + "\n");
-  canonical.push(headersToSign.join(";").toLowerCase());
-  canonical.push(payloadHash);
-  return canonical.join("\n");
+  // construct the canonical string from these parts:
+  return [
+    method.toUpperCase(),
+    awsUriEncode(requestResource, true),
+    requestQuery,
+    headersArray.join("\n") + "\n",
+    headersToSign.join(";").toLowerCase(),
+    payloadHash,
+  ].join("\n");
 }
 
 // returns the string that needs to be signed
@@ -279,12 +280,12 @@ async function getStringToSign(
 ): Promise<string> {
   const hash = await sha256digestHex(canonicalRequest);
   const scope = getScope(region, requestDate);
-  const stringToSign = [];
-  stringToSign.push(signV4Algorithm);
-  stringToSign.push(makeDateLong(requestDate));
-  stringToSign.push(scope);
-  stringToSign.push(hash);
-  return stringToSign.join("\n");
+  return [
+    signV4Algorithm,
+    makeDateLong(requestDate),
+    scope,
+    hash,
+  ].join("\n");
 }
 
 /** returns the key used for calculating signature */
@@ -307,9 +308,6 @@ function getCredential(accessKey: string, region: string, requestDate: Date) {
 
 /**
  * Given a secret key and some data, generate a HMAC of the data using SHA-256.
- * @param secretKey
- * @param data
- * @returns
  */
 async function sha256hmac(
   secretKey: Uint8Array_ | string,
@@ -369,7 +367,6 @@ export async function presignPostV4(request: {
 
   const expiration = new Date(request.date);
   expiration.setSeconds(expiration.getSeconds() + request.expirySeconds);
-  const iso8601ExpirationDate = expiration.toISOString();
   const credential = getCredential(request.accessKey, request.region, request.date);
   const iso8601Date = makeDateLong(request.date);
 
@@ -404,13 +401,12 @@ export async function presignPostV4(request: {
   }
 
   const policy = {
-    expiration: iso8601ExpirationDate,
+    expiration: expiration.toISOString(),
     conditions,
   };
 
   // Convert policy to base64
-  const encoder = new TextEncoder();
-  const policyBytes = encoder.encode(JSON.stringify(policy));
+  const policyBytes = new TextEncoder().encode(JSON.stringify(policy));
   const base64Policy = btoa(String.fromCharCode(...policyBytes));
   fields["policy"] = base64Policy;
 
