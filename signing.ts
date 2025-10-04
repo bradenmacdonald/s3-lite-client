@@ -422,13 +422,7 @@ export async function presignPostV4(request: {
 
   // Calculate signature
   const stringToSign = base64Policy;
-  const dateKey = await sha256hmac(
-    "AWS4" + request.secretKey,
-    makeDateShort(request.date),
-  );
-  const dateRegionKey = await sha256hmac(dateKey, request.region);
-  const dateRegionServiceKey = await sha256hmac(dateRegionKey, "s3");
-  const signingKey = await sha256hmac(dateRegionServiceKey, "aws4_request");
+  const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
   const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
   fields["X-Amz-Signature"] = signature;
 
