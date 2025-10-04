@@ -265,9 +265,7 @@ export class Client {
   protected getBucketName(options: undefined | { bucketName?: string }): string {
     const bucketName = options?.bucketName ?? this.defaultBucket;
     if (bucketName === undefined || !isValidBucketName(bucketName)) {
-      throw new errors.InvalidBucketNameError(
-        `Invalid bucket name: ${bucketName}`,
-      );
+      throw new errors.InvalidBucketNameError(bucketName ?? "");
     }
     return bucketName;
   }
@@ -401,7 +399,7 @@ export class Client {
   ) {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+      throw new errors.InvalidObjectNameError(objectName);
     }
 
     const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
@@ -476,9 +474,7 @@ export class Client {
   ): Promise<Response> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(
-        `Invalid object name: ${objectName}`,
-      );
+      throw new errors.InvalidObjectNameError(objectName);
     }
 
     const headers = new Headers(Object.entries(options.metadata ?? {}));
@@ -527,12 +523,10 @@ export class Client {
       {},
   ): Promise<string> {
     if (!this.accessKey) {
-      throw new errors.AccessKeyRequiredError(
-        `Presigned ${method} URLs cannot be generated for anonymous requests. Specify an accessKey and secretKey.`,
-      );
+      throw new errors.AccessKeyRequiredError();
     }
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+      throw new errors.InvalidObjectNameError(objectName);
     }
     const { headers, path } = this.buildRequestOptions({
       objectName,
@@ -733,9 +727,7 @@ export class Client {
   ): Promise<UploadedObjectInfo> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(
-        `Invalid object name: ${objectName}`,
-      );
+      throw new errors.InvalidObjectNameError(objectName);
     }
 
     // Prepare a readable stream for the upload:
@@ -860,9 +852,7 @@ export class Client {
   ): Promise<ObjectStatus> {
     const bucketName = this.getBucketName(options);
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(
-        `Invalid object name: ${objectName}`,
-      );
+      throw new errors.InvalidObjectNameError(objectName);
     }
     const query: Record<string, string> = {};
     if (options?.versionId) {
@@ -917,7 +907,7 @@ export class Client {
     const bucketName = this.getBucketName(options);
     const sourceBucketName = source.sourceBucketName ?? bucketName;
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+      throw new errors.InvalidObjectNameError(objectName);
     }
 
     // The "x-amz-copy-source" header is like "bucket/objectkey" with an optional version ID.
@@ -1024,7 +1014,7 @@ export class Client {
     } = {},
   ): Promise<PresignedPostResult> {
     if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(`Invalid object name: ${objectName}`);
+      throw new errors.InvalidObjectNameError(objectName);
     }
 
     const bucketName = this.getBucketName(options);

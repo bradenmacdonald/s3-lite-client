@@ -16,10 +16,10 @@ export async function signV4(request: {
   date: Date;
 }): Promise<string> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
 
   const sha256sum = request.headers.get("x-amz-content-sha256");
@@ -76,16 +76,13 @@ export async function presignV4(request: {
   expirySeconds: number;
 }): Promise<string> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
-  if (request.expirySeconds < 1) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
-  }
-  if (request.expirySeconds > 604800) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  if (request.expirySeconds < 1 || request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError();
   }
   if (!request.headers.has("Host")) {
     throw new Error("Internal error: host header missing");
@@ -361,16 +358,13 @@ export async function presignPostV4(request: {
   fields: Record<string, string>;
 }> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
-  if (request.expirySeconds < 1) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
-  }
-  if (request.expirySeconds > 604800) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  if (request.expirySeconds < 1 || request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError();
   }
 
   const expiration = new Date(request.date);
