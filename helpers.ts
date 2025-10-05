@@ -11,14 +11,8 @@ export function isValidPort(port: number) {
   if (typeof port !== "number" || isNaN(port)) {
     return false;
   }
-  // port cannot be negative.
-  if (port <= 0) {
-    return false;
-  }
-  const minPort = 1;
-  const maxPort = 65535;
   // Verify if port is in range.
-  return port >= minPort && port <= maxPort;
+  return port >= 1 && port <= 65535;
 }
 
 /**
@@ -36,7 +30,7 @@ export function isValidBucketName(bucket: string) {
     return false;
   }
   // bucket with successive periods is invalid.
-  if (bucket.indexOf("..") > -1) {
+  if (bucket.includes("..")) {
     return false;
   }
   // bucket cannot have ip address style.
@@ -96,27 +90,20 @@ export function getVersionId(headers: Headers): string | null {
 }
 
 /** Create a Date string with format: 'YYYYMMDDTHHmmss' + Z */
-export function makeDateLong(date?: Date) {
-  date = date || new Date();
-
+export function makeDateLong(date: Date) {
   // Gives format like: '2017-08-07T16:28:59.889Z'
   const dateStr = date.toISOString();
 
-  return dateStr.substr(0, 4) +
-    dateStr.substr(5, 2) +
-    dateStr.substr(8, 5) +
-    dateStr.substr(14, 2) +
-    dateStr.substr(17, 2) + "Z";
+  return dateStr.slice(0, 4) +
+    dateStr.slice(5, 7) +
+    dateStr.slice(8, 13) +
+    dateStr.slice(14, 16) +
+    dateStr.slice(17, 19) + "Z";
 }
 
 /** Create a Date string with format: 'YYYYMMDD' */
-export function makeDateShort(date?: Date) {
-  date = date || new Date();
-
-  // Gives format like: '2017-08-07T16:28:59.889Z'
-  const dateStr = date.toISOString();
-
-  return dateStr.substr(0, 4) + dateStr.substr(5, 2) + dateStr.substr(8, 2);
+export function makeDateShort(date: Date) {
+  return makeDateLong(date).slice(0, 8);
 }
 
 export function getScope(region: string, date: Date) {

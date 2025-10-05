@@ -3,18 +3,14 @@
  * https://github.com/nekobato/deno-xml-parser
  * By Hayato Koriyama, MIT licensed
  * Based on https://github.com/segmentio/xml-parser (MIT licensed)
- * "Simple non-compiant XML parser because we just need to parse some basic responses"
+ * "Simple non-compliant XML parser because we just need to parse some basic responses"
  */
 
 interface Document {
   declaration: {
     attributes: Record<string, string>;
   };
-  root: {
-    name: string;
-    attributes: Record<string, string>;
-    children: Xml[];
-  } | undefined;
+  root: Xml | undefined;
 }
 
 interface Xml {
@@ -26,10 +22,6 @@ interface Xml {
 
 /**
  * Parse the given string of `xml`.
- *
- * @param {String} xml
- * @return {Object}
- * @api public
  */
 export function parse(xml: string): Document {
   xml = xml.trim();
@@ -161,13 +153,13 @@ export function parse(xml: string): Document {
    * End-of-source.
    */
   function eos() {
-    return 0 == xml.length;
+    return xml.length === 0;
   }
 
   /**
    * Check for `prefix`.
    */
   function is(prefix: string) {
-    return 0 == xml.indexOf(prefix);
+    return xml.startsWith(prefix);
   }
 }

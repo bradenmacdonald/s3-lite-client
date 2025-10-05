@@ -16,10 +16,10 @@ export async function signV4(request: {
   date: Date;
 }): Promise<string> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
 
   const sha256sum = request.headers.get("x-amz-content-sha256");
@@ -76,16 +76,13 @@ export async function presignV4(request: {
   expirySeconds: number;
 }): Promise<string> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
-  if (request.expirySeconds < 1) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
-  }
-  if (request.expirySeconds > 604800) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  if (request.expirySeconds < 1 || request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError();
   }
   if (!request.headers.has("Host")) {
     throw new Error("Internal error: host header missing");
@@ -264,14 +261,15 @@ function getCanonicalRequest(
     requestQuery = "";
   }
 
-  const canonical = [];
-  canonical.push(method.toUpperCase());
-  canonical.push(awsUriEncode(requestResource, true));
-  canonical.push(requestQuery);
-  canonical.push(headersArray.join("\n") + "\n");
-  canonical.push(headersToSign.join(";").toLowerCase());
-  canonical.push(payloadHash);
-  return canonical.join("\n");
+  // construct the canonical string from these parts:
+  return [
+    method.toUpperCase(),
+    awsUriEncode(requestResource, true),
+    requestQuery,
+    headersArray.join("\n") + "\n",
+    headersToSign.join(";").toLowerCase(),
+    payloadHash,
+  ].join("\n");
 }
 
 // returns the string that needs to be signed
@@ -282,12 +280,12 @@ async function getStringToSign(
 ): Promise<string> {
   const hash = await sha256digestHex(canonicalRequest);
   const scope = getScope(region, requestDate);
-  const stringToSign = [];
-  stringToSign.push(signV4Algorithm);
-  stringToSign.push(makeDateLong(requestDate));
-  stringToSign.push(scope);
-  stringToSign.push(hash);
-  return stringToSign.join("\n");
+  return [
+    signV4Algorithm,
+    makeDateLong(requestDate),
+    scope,
+    hash,
+  ].join("\n");
 }
 
 /** returns the key used for calculating signature */
@@ -310,9 +308,6 @@ function getCredential(accessKey: string, region: string, requestDate: Date) {
 
 /**
  * Given a secret key and some data, generate a HMAC of the data using SHA-256.
- * @param secretKey
- * @param data
- * @returns
  */
 async function sha256hmac(
   secretKey: Uint8Array_ | string,
@@ -361,21 +356,17 @@ export async function presignPostV4(request: {
   fields: Record<string, string>;
 }> {
   if (!request.accessKey) {
-    throw new errors.AccessKeyRequiredError("accessKey is required for signing");
+    throw new errors.AccessKeyRequiredError();
   }
   if (!request.secretKey) {
-    throw new errors.SecretKeyRequiredError("secretKey is required for signing");
+    throw new errors.SecretKeyRequiredError();
   }
-  if (request.expirySeconds < 1) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be less than 1 seconds");
-  }
-  if (request.expirySeconds > 604800) {
-    throw new errors.InvalidExpiryError("expirySeconds cannot be greater than 7 days");
+  if (request.expirySeconds < 1 || request.expirySeconds > 604800) {
+    throw new errors.InvalidExpiryError();
   }
 
   const expiration = new Date(request.date);
   expiration.setSeconds(expiration.getSeconds() + request.expirySeconds);
-  const iso8601ExpirationDate = expiration.toISOString();
   const credential = getCredential(request.accessKey, request.region, request.date);
   const iso8601Date = makeDateLong(request.date);
 
@@ -410,25 +401,18 @@ export async function presignPostV4(request: {
   }
 
   const policy = {
-    expiration: iso8601ExpirationDate,
+    expiration: expiration.toISOString(),
     conditions,
   };
 
   // Convert policy to base64
-  const encoder = new TextEncoder();
-  const policyBytes = encoder.encode(JSON.stringify(policy));
+  const policyBytes = new TextEncoder().encode(JSON.stringify(policy));
   const base64Policy = btoa(String.fromCharCode(...policyBytes));
   fields["policy"] = base64Policy;
 
   // Calculate signature
   const stringToSign = base64Policy;
-  const dateKey = await sha256hmac(
-    "AWS4" + request.secretKey,
-    makeDateShort(request.date),
-  );
-  const dateRegionKey = await sha256hmac(dateKey, request.region);
-  const dateRegionServiceKey = await sha256hmac(dateRegionKey, "s3");
-  const signingKey = await sha256hmac(dateRegionServiceKey, "aws4_request");
+  const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
   const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
   fields["X-Amz-Signature"] = signature;
 

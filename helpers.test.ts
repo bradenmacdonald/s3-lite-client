@@ -1,21 +1,59 @@
 import { assertEquals } from "@std/assert/equals";
-import { bin2hex, isValidPort, makeDateLong, makeDateShort, sha256digestHex } from "./helpers.ts";
+import { bin2hex, isValidBucketName, isValidPort, makeDateLong, makeDateShort, sha256digestHex } from "./helpers.ts";
 
 Deno.test({
   name: "isValidPort",
   fn: () => {
-    // Invalid:
+    // ❌ Invalid:
     assertEquals(isValidPort(-50), false);
     assertEquals(isValidPort(0), false);
     assertEquals(isValidPort(90_000), false);
     assertEquals(isValidPort(NaN), false);
-    // deno-lint-ignore no-explicit-any
-    assertEquals(isValidPort("foobar" as any), false);
-    // Valid:
+    assertEquals(isValidPort(Infinity), false);
+    // @ts-expect-error isValidPort normally accepts a number
+    assertEquals(isValidPort("foobar"), false);
+    // ✅ Valid:
     assertEquals(isValidPort(123), true);
     assertEquals(isValidPort(80), true);
     assertEquals(isValidPort(443), true);
     assertEquals(isValidPort(9000), true);
+  },
+});
+
+Deno.test({
+  name: "isValidBucketName",
+  fn: async (t) => {
+    // ❌ Invalid:
+    for (
+      const invalidName of [
+        undefined,
+        "",
+        "ab", // too short
+        "has_underscore", // no underscores
+        "test..bar", // double periods
+        "192.168.5.4", // looks like an IP address
+        "propellane-possesses-omniphilic-reactivity-anions-and-radicals-add-towards-the-interbridgehead-bond", // too long
+        "-hyphen-",
+      ] as unknown as string[]
+    ) {
+      await t.step({
+        name: `"${invalidName}" is not a valid bucket name`,
+        fn: () => assertEquals(isValidBucketName(invalidName), false),
+      });
+    }
+    // ✅ Valid:
+    for (
+      const validName of [
+        "bucket",
+        "bucket-23",
+        "test.bucket.com",
+      ] as unknown as string[]
+    ) {
+      await t.step({
+        name: `"${validName}" is a valid bucket name`,
+        fn: () => assertEquals(isValidBucketName(validName), true),
+      });
+    }
   },
 });
 
