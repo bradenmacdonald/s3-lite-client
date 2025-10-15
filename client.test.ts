@@ -226,14 +226,14 @@ Deno.test({
     await t.step("deleteObject encodes path", async () => {
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+      globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
         const url = typeof input === "string"
           ? input
           : input instanceof URL
             ? input.toString()
             : input.url;
         calls.push({ url, init });
-        return new Response(null, { status: 204 });
+        return Promise.resolve(new Response(null, { status: 204 }));
       }) as typeof globalThis.fetch;
 
       try {
@@ -253,21 +253,23 @@ Deno.test({
     await t.step("exists encodes path for HEAD", async () => {
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+      globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
         const url = typeof input === "string"
           ? input
           : input instanceof URL
             ? input.toString()
             : input.url;
         calls.push({ url, init });
-        return new Response(null, {
-          status: 200,
-          headers: {
-            "content-length": "0",
-            "Last-Modified": new Date("2024-01-01T00:00:00Z").toUTCString(),
-            "ETag": "\"etag\"",
-          },
-        });
+        return Promise.resolve(
+          new Response(null, {
+            status: 200,
+            headers: {
+              "content-length": "0",
+              "Last-Modified": new Date("2024-01-01T00:00:00Z").toUTCString(),
+              "ETag": "\"etag\"",
+            },
+          }),
+        );
       }) as typeof globalThis.fetch;
 
       let exists: boolean;
@@ -289,14 +291,14 @@ Deno.test({
     await t.step("getObject encodes path for GET", async () => {
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+      globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
         const url = typeof input === "string"
           ? input
           : input instanceof URL
             ? input.toString()
             : input.url;
         calls.push({ url, init });
-        return new Response("payload", { status: 200, headers: { "content-length": "7" } });
+        return Promise.resolve(new Response("payload", { status: 200, headers: { "content-length": "7" } }));
       }) as typeof globalThis.fetch;
 
       let response: Response;
