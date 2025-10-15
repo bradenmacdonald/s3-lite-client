@@ -1,3 +1,4 @@
+import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertThrows } from "@std/assert/throws";
 import { Client } from "./client.ts";
@@ -205,6 +206,113 @@ Deno.test({
         true,
         "URL should contain properly encoded object path",
       );
+    });
+  },
+});
+
+Deno.test({
+  name: "object operations encode '+' in object names",
+  fn: async (t) => {
+    const client = new Client({
+      endPoint: "s3.amazonaws.com",
+      region: "us-east-1",
+      bucket: "test-bucket",
+      accessKey: "test-access-key",
+      secretKey: "test-secret-key",
+    });
+
+    const objectName = "folder/with+sign.txt";
+
+    await t.step("deleteObject encodes path", async () => {
+      const originalFetch = globalThis.fetch;
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+        calls.push({ url, init });
+        return new Response(null, { status: 204 });
+      }) as typeof globalThis.fetch;
+
+      try {
+        await client.deleteObject(objectName);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      assertEquals(calls.length, 1);
+      const { url, init } = calls[0];
+      assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
+      assert(!url.includes("+"));
+      assert(url.includes("with%2Bsign.txt"));
+      assertEquals(init?.method, "DELETE");
+    });
+
+    await t.step("exists encodes path for HEAD", async () => {
+      const originalFetch = globalThis.fetch;
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+        calls.push({ url, init });
+        return new Response(null, {
+          status: 200,
+          headers: {
+            "content-length": "0",
+            "Last-Modified": new Date("2024-01-01T00:00:00Z").toUTCString(),
+            "ETag": "\"etag\"",
+          },
+        });
+      }) as typeof globalThis.fetch;
+
+      let exists: boolean;
+      try {
+        exists = await client.exists(objectName);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      assertEquals(exists, true);
+      assertEquals(calls.length, 1);
+      const { url, init } = calls[0];
+      assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
+      assert(!url.includes("+"));
+      assert(url.includes("with%2Bsign.txt"));
+      assertEquals(init?.method, "HEAD");
+    });
+
+    await t.step("getObject encodes path for GET", async () => {
+      const originalFetch = globalThis.fetch;
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      globalThis.fetch = (async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+        calls.push({ url, init });
+        return new Response("payload", { status: 200, headers: { "content-length": "7" } });
+      }) as typeof globalThis.fetch;
+
+      let response: Response;
+      try {
+        response = await client.getObject(objectName);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      assertEquals(await response.text(), "payload");
+      assertEquals(calls.length, 1);
+      const { url, init } = calls[0];
+      assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
+      assert(!url.includes("+"));
+      assert(url.includes("with%2Bsign.txt"));
+      assertEquals(init?.method, "GET");
     });
   },
 });

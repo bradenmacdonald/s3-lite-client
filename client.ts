@@ -282,6 +282,7 @@ export class Client {
     headers: Headers;
     host: string;
     path: string;
+    encodedPath: string;
   } {
     const bucketName = this.getBucketName(options);
     const host = this.pathStyle ? this.host : `${bucketName}.${this.host}`;
@@ -290,10 +291,16 @@ export class Client {
     const queryAsString = typeof options.query === "object"
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
-    const path =
-      (this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`) +
-      (queryAsString ? `?${queryAsString}` : "");
-    return { headers, host, path };
+
+    const encodeObjectName = (name: string) => name.split("/").map((part) => encodeURIComponent(part)).join("/");
+    const objectPath = this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`;
+    const encodedObjectPath = this.pathStyle
+      ? `${this.pathPrefix}/${bucketName}/${encodeObjectName(options.objectName)}`
+      : `/${encodeObjectName(options.objectName)}`;
+
+    const path = objectPath + (queryAsString ? `?${queryAsString}` : "");
+    const encodedPath = encodedObjectPath + (queryAsString ? `?${queryAsString}` : "");
+    return { headers, host, path, encodedPath };
   }
 
   /**
@@ -318,7 +325,7 @@ export class Client {
     returnBody?: boolean;
   }): Promise<Response> {
     const date = new Date();
-    const { headers, host, path } = this.buildRequestOptions(options);
+    const { headers, host, path, encodedPath } = this.buildRequestOptions(options);
     const statusCode = options.statusCode ?? 200;
 
     if (
@@ -354,7 +361,7 @@ export class Client {
       );
     }
 
-    const fullUrl = `${this.protocol}//${host}${path}`;
+    const fullUrl = `${this.protocol}//${host}${encodedPath}`;
 
     const response = await fetch(fullUrl, {
       method,
