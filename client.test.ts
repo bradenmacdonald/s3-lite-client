@@ -227,11 +227,7 @@ Deno.test({
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
       globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         calls.push({ url, init });
         return Promise.resolve(new Response(null, { status: 204 }));
       }) as typeof globalThis.fetch;
@@ -254,11 +250,7 @@ Deno.test({
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
       globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         calls.push({ url, init });
         return Promise.resolve(
           new Response(null, {
@@ -266,7 +258,7 @@ Deno.test({
             headers: {
               "content-length": "0",
               "Last-Modified": new Date("2024-01-01T00:00:00Z").toUTCString(),
-              "ETag": "\"etag\"",
+              "ETag": '"etag"',
             },
           }),
         );
@@ -292,11 +284,7 @@ Deno.test({
       const originalFetch = globalThis.fetch;
       const calls: Array<{ url: string; init?: RequestInit }> = [];
       globalThis.fetch = ((input: RequestInfo, init?: RequestInit): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         calls.push({ url, init });
         return Promise.resolve(new Response("payload", { status: 200, headers: { "content-length": "7" } }));
       }) as typeof globalThis.fetch;

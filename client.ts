@@ -293,7 +293,9 @@ export class Client {
       : (options.query);
 
     const encodeObjectName = (name: string) => name.split("/").map((part) => encodeURIComponent(part)).join("/");
-    const objectPath = this.pathStyle ? `${this.pathPrefix}/${bucketName}/${options.objectName}` : `/${options.objectName}`;
+    const objectPath = this.pathStyle
+      ? `${this.pathPrefix}/${bucketName}/${options.objectName}`
+      : `/${options.objectName}`;
     const encodedObjectPath = this.pathStyle
       ? `${this.pathPrefix}/${bucketName}/${encodeObjectName(options.objectName)}`
       : `/${encodeObjectName(options.objectName)}`;
