@@ -246,8 +246,9 @@ for (
     "файл/gemütlich.txt",
     "path with spaces.txt",
     "yes&no.dat",
+    "percent%.txt",
     "foo(bar)",
-    "1+1=2",
+    "1+1+1=3",
     "~backup<crazy>.foo",
   ]
 ) {
