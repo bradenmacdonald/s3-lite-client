@@ -1,6 +1,6 @@
 {
   "name": "@bradenmacdonald/s3-lite-client",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "license": "MIT",
   "exports": "./mod.ts",
   "fmt": {
