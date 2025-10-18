@@ -292,16 +292,14 @@ export class Client {
       ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
       : (options.query);
 
-    const encodeObjectName = (name: string) => name.split("/").map((part) => encodeURIComponent(part)).join("/");
-    const objectPath = this.pathStyle
+    const basePath = this.pathStyle
       ? `${this.pathPrefix}/${bucketName}/${options.objectName}`
       : `/${options.objectName}`;
-    const encodedObjectPath = this.pathStyle
-      ? `${this.pathPrefix}/${bucketName}/${encodeObjectName(options.objectName)}`
-      : `/${encodeObjectName(options.objectName)}`;
-
-    const path = objectPath + (queryAsString ? `?${queryAsString}` : "");
-    const encodedPath = encodedObjectPath + (queryAsString ? `?${queryAsString}` : "");
+    const querySuffix = queryAsString ? `?${queryAsString}` : "";
+    const path = basePath + querySuffix;
+    // For signing, we have to use the path as-is, but for making the request we have to be sure to
+    // escape the '+' and '%' characters, or we'll get signing errors, at least with some S3 servers.
+    const encodedPath = basePath.split("/").map((part) => encodeURIComponent(part)).join("/") + querySuffix;
     return { headers, host, path, encodedPath };
   }
 
