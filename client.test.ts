@@ -1,5 +1,6 @@
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
+import { assertStringIncludes } from "@std/assert/string-includes";
 import { assertThrows } from "@std/assert/throws";
 import { Client } from "./client.ts";
 import { S3Errors } from "./mod.ts";
@@ -200,10 +201,10 @@ Deno.test({
 
       // The URL should contain %2B instead of + for proper URL encoding
       assertEquals(presignedUrl.includes("+"), false, "Presigned URL should not contain unencoded '+' character");
-      assertEquals(presignedUrl.includes("%2B"), true, "Presigned URL should contain URL-encoded '+' as '%2B'");
-      assertEquals(
-        presignedUrl.includes("/test-bucket/apps/test.app.com/3.0.125%2Bb%5BTEST%2C75%5D.f5d735b49.zip"),
-        true,
+      assertStringIncludes(presignedUrl, "%2B", "Presigned URL should contain URL-encoded '+' as '%2B'");
+      assertStringIncludes(
+        presignedUrl,
+        "/test-bucket/apps/test.app.com/3.0.125%2Bb%5BTEST%2C75%5D.f5d735b49.zip",
         "URL should contain properly encoded object path",
       );
     });
@@ -242,7 +243,7 @@ Deno.test({
       const { url, init } = calls[0];
       assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
       assert(!url.includes("+"));
-      assert(url.includes("with%2Bsign.txt"));
+      assertStringIncludes(url, "with%2Bsign.txt");
       assertEquals(init?.method, "DELETE");
     });
 
@@ -276,7 +277,7 @@ Deno.test({
       const { url, init } = calls[0];
       assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
       assert(!url.includes("+"));
-      assert(url.includes("with%2Bsign.txt"));
+      assertStringIncludes(url, "with%2Bsign.txt");
       assertEquals(init?.method, "HEAD");
     });
 
@@ -301,7 +302,7 @@ Deno.test({
       const { url, init } = calls[0];
       assert(url.startsWith("https://s3.amazonaws.com/test-bucket/"));
       assert(!url.includes("+"));
-      assert(url.includes("with%2Bsign.txt"));
+      assertStringIncludes(url, "with%2Bsign.txt");
       assertEquals(init?.method, "GET");
     });
   },
