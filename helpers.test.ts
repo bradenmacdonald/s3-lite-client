@@ -31,9 +31,9 @@ Deno.test({
         "ab", // too short
         "has_underscore", // no underscores
         "test..bar", // double periods
-        "192.168.5.4", // looks like an IP address
-        "propellane-possesses-omniphilic-reactivity-anions-and-radicals-add-towards-the-interbridgehead-bond", // too long
-        "-hyphen-",
+        // too long:
+        "propellane-possesses-omniphilic-reactivity-anions-and-radicals-add-towards-the-interbridgehead-bond-because-the-tridimensional-vacuum-constant-is-weaker-in-the-magnetic-flux-from-the-pseudo-electromagnetic-field-generated-by-the-subspace-distortion-of-the-integrated-hypercapacitor",
+        "-hyphen-", // must start/end with letters/numbers
       ] as unknown as string[]
     ) {
       await t.step({
@@ -47,6 +47,7 @@ Deno.test({
         "bucket",
         "bucket-23",
         "test.bucket.com",
+        "Capitalized.Backblaze.Bucket",
       ] as unknown as string[]
     ) {
       await t.step({

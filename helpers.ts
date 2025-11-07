@@ -17,32 +17,32 @@ export function isValidPort(port: number) {
 
 /**
  * Validate a bucket name.
- * http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
+ *
+ * This is pretty minimal, general validation. We let the remote
+ * S3 server do detailed validation.
+ *
+ * https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
  */
-export function isValidBucketName(bucket: string) {
+export function isValidBucketName(bucket: string): boolean {
   if (typeof bucket !== "string") {
     return false;
   }
-
-  // bucket length should be less than and no more than 63
-  // characters long.
-  if (bucket.length < 3 || bucket.length > 63) {
+  // Generally the bucket name length limit is 63, but
+  // "Before March 1, 2018, buckets created in the US East (N. Virginia)
+  //  Region could have names that were up to 255 characters long"
+  if (bucket.length > 255) {
     return false;
   }
-  // bucket with successive periods is invalid.
+  // "Bucket names must not contain two adjacent periods."
   if (bucket.includes("..")) {
     return false;
   }
-  // bucket cannot have ip address style.
-  if (bucket.match(/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/)) {
-    return false;
-  }
-  // bucket should begin with alphabet/number and end with alphabet/number,
-  // with alphabet/number/.- in the middle.
-  if (bucket.match(/^[a-z0-9][a-z0-9.-]+[a-z0-9]$/)) {
-    return true;
-  }
-  return false;
+  // "Bucket names must begin and end with a letter or number."
+  // "Bucket names can consist only of lowercase letters, numbers,
+  //  periods (.), and hyphens (-)."
+  // -> Most S3 servers require lowercase bucket names but some allow
+  // uppercase (Backblaze, AWS us-east buckets created before 2018)
+  return Boolean(bucket.match(/^[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9]$/));
 }
 
 /**
