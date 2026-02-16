@@ -522,7 +522,7 @@ Deno.test({
   name: "copyObject() works with non-ASCII characters in the source key",
   fn: async () => {
     const contents = "Non-ASCII copy test content";
-    const sourceKey = "test-copy-source（1）.txt";
+    const sourceKey = "test-copy-source（1）.txt"; // The parentheses are Japanese full-width parentheses
     const destKey = "test-copy-dest-from-non-ascii.txt";
 
     // Upload source with non-ASCII key
