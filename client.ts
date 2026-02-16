@@ -919,7 +919,9 @@ export class Client {
 
     // The "x-amz-copy-source" header is like "bucket/objectkey" with an optional version ID.
     // e.g. "awsexamplebucket/reports/january.pdf?versionId=QUpfdndhfd8438MNFDN93jdnJFkdmqnh893"
-    let xAmzCopySource = `${sourceBucketName}/${source.sourceKey.split("/").map((part) => encodeURIComponent(part)).join("/")}`;
+    let xAmzCopySource = `${sourceBucketName}/${
+      source.sourceKey.split("/").map((part) => encodeURIComponent(part)).join("/")
+    }`;
     if (source.sourceVersionId) xAmzCopySource += `?versionId=${source.sourceVersionId}`;
 
     const headers = new Headers(options?.metadata);
