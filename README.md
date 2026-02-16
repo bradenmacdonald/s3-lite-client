@@ -50,7 +50,7 @@ Supported functionality:
 [![JSR Score](https://jsr.io/badges/@bradenmacdonald/s3-lite-client/score)](https://jsr.io/@bradenmacdonald/s3-lite-client/score)
 
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
-- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.9.4";`
+- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.9.5";`
 - NPM: `npx jsr add @bradenmacdonald/s3-lite-client`
 - Yarn: `yarn add jsr:@bradenmacdonald/s3-lite-client`
 - pnpm: `pnpm add jsr:@bradenmacdonald/s3-lite-client`
@@ -58,9 +58,9 @@ Supported functionality:
 - Browser:
   ```html
   <script type="module">
-    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.4";
+    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.5";
     // Or:
-    const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.4");
+    const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.5");
   </script>
   ```
 
