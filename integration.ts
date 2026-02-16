@@ -519,6 +519,35 @@ Deno.test({
 });
 
 Deno.test({
+  name: "copyObject() works with non-ASCII characters in the source key",
+  fn: async () => {
+    const contents = "Non-ASCII copy test content";
+    const sourceKey = "test-copy-source（1）.txt"; // The parentheses are Japanese full-width parentheses
+    const destKey = "test-copy-dest-from-non-ascii.txt";
+
+    // Upload source with non-ASCII key
+    await client.putObject(sourceKey, contents);
+
+    // Clean up destination if it exists
+    try {
+      await client.deleteObject(destKey);
+    } catch { /* ignore */ }
+
+    // Copy should succeed without ByteString error
+    const response = await client.copyObject({ sourceKey }, destKey);
+    assertInstanceOf(response.lastModified, Date);
+
+    // Verify the copied content
+    const result = await client.getObject(destKey);
+    assertEquals(await result.text(), contents);
+
+    // Clean up
+    await client.deleteObject(sourceKey);
+    await client.deleteObject(destKey);
+  },
+});
+
+Deno.test({
   name: "bucketExists() can check if a bucket exists",
   fn: async () => {
     const testBucketName = "test-bucket";
