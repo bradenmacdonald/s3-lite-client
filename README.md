@@ -51,7 +51,7 @@ Supported functionality:
 
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
 - Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.9.5";`
-- NPM: `npx jsr add @bradenmacdonald/s3-lite-client`
+- NPM: `npm add @bradenmacdonald/s3-lite-client`
 - Yarn: `yarn add jsr:@bradenmacdonald/s3-lite-client`
 - pnpm: `pnpm add jsr:@bradenmacdonald/s3-lite-client`
 - Bun: `bunx jsr add @bradenmacdonald/s3-lite-client`

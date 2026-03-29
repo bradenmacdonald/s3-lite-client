@@ -22,3 +22,27 @@ jobs:
 
       - name: Publish package
         run: deno publish
+  publish-npm:
+    needs:
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+          registry-url: "https://registry.npmjs.org" # needed for npm publish
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: download transpiled package from JSR
+        run: deno run --allow-run --allow-read --allow-write .github/workflows/prepare-publish.ts
+      - name: Publish to npm
+        working-directory: ./node_modules/@bradenmacdonald/s3-lite-client
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
