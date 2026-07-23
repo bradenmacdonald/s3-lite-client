@@ -64,9 +64,9 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 - Browser:
   ```html
   <script type="module">
-    import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6";
-    // Or:
-    const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6");
+  import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6";
+  // Or:
+  const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6");
   </script>
   ```
 
