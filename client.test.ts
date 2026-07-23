@@ -307,3 +307,30 @@ Deno.test({
     });
   },
 });
+
+Deno.test({
+  name: "getPresignedUrl() can include extra headers in the signature",
+  fn: async () => {
+    const client = new Client({
+      endPoint: "https://s3.example.com",
+      region: "auto",
+      bucket: "test-bucket",
+      accessKey: "test-access-key",
+      secretKey: "test-secret-key",
+    });
+    const requestDate = new Date("2026-07-23T12:00:00.000Z");
+    const conditionalUrl = new URL(
+      await client.getPresignedUrl("PUT", "file.txt", {
+        requestDate,
+        extraHeaders: { "If-None-Match": "*" },
+      }),
+    );
+    const unconditionalUrl = new URL(await client.getPresignedUrl("PUT", "file.txt", { requestDate }));
+
+    // The extra header must be listed in the signed headers:
+    assertEquals(conditionalUrl.searchParams.get("X-Amz-SignedHeaders")?.split(";"), ["host", "if-none-match"]);
+    assertEquals(unconditionalUrl.searchParams.get("X-Amz-SignedHeaders"), "host");
+    // And it must change the signature:
+    assert(conditionalUrl.searchParams.get("X-Amz-Signature") !== unconditionalUrl.searchParams.get("X-Amz-Signature"));
+  },
+});

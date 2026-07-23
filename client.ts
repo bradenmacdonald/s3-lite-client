@@ -526,8 +526,18 @@ export class Client {
   getPresignedUrl(
     method: "GET" | "PUT" | "HEAD" | "DELETE",
     objectName: string,
-    options: { bucketName?: string; parameters?: Record<string, string>; expirySeconds?: number; requestDate?: Date } =
-      {},
+    options: {
+      bucketName?: string;
+      parameters?: Record<string, string>;
+      expirySeconds?: number;
+      requestDate?: Date;
+      /**
+       * Additional headers to include in the signature (advanced usage), e.g. `{ "If-None-Match": "*" }` to make a
+       * conditional write that cannot overwrite an existing object. Whoever uses the resulting pre-signed URL must
+       * send these exact headers along with the request, or it will be rejected.
+       */
+      extraHeaders?: Record<string, string>;
+    } = {},
   ): Promise<string> {
     if (!this.accessKey) {
       throw new errors.AccessKeyRequiredError();
@@ -539,6 +549,7 @@ export class Client {
       objectName,
       bucketName: options.bucketName,
       query: options.parameters,
+      headers: new Headers(options.extraHeaders),
     });
     const requestDate = options.requestDate ?? new Date();
     const expirySeconds = options.expirySeconds ?? 24 * 60 * 60 * 7; // default expiration is 7 days in seconds.

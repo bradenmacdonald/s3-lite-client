@@ -296,6 +296,37 @@ Deno.test({
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// getPresignedUrl() with extraHeaders
+
+Deno.test({
+  name: "getPresignedUrl() can sign extra headers, e.g. If-None-Match for a conditional write",
+  fn: async () => {
+    const key = "test-presigned-conditional.txt";
+    await client.deleteObject(key);
+    const presignedUrl = await client.getPresignedUrl("PUT", key, { extraHeaders: { "If-None-Match": "*" } });
+
+    // A request that doesn't send the signed header is rejected (the exact status code varies by S3 implementation):
+    const missingHeader = await fetch(presignedUrl, { method: "PUT", body: "first version" });
+    await missingHeader.body?.cancel();
+    assert(missingHeader.status >= 400);
+    assertEquals(await client.exists(key), false);
+
+    // The first conditional write succeeds, because the object doesn't exist yet:
+    const putVersion = (body: string) =>
+      fetch(presignedUrl, { method: "PUT", body, headers: { "If-None-Match": "*" } });
+    const first = await putVersion("first version");
+    await first.body?.cancel();
+    assertEquals(first.status, 200);
+
+    // The second conditional write fails with 412 Precondition Failed, because the object now exists:
+    const second = await putVersion("second version");
+    await second.body?.cancel();
+    assertEquals(second.status, 412);
+    assertEquals(await client.getObject(key).then((r) => r.text()), "first version");
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // presignedGetObject()
 
 Deno.test({
