@@ -299,7 +299,7 @@ async function sha256hmac(
     secretKey instanceof Uint8Array ? secretKey : encoder.encode(secretKey),
     { name: "HMAC", hash: { name: "SHA-256" } }, // algorithm
     false, // export = false
-    ["sign", "verify"], // what this key can do
+    ["sign"], // what this key can do
   );
   const signature = await crypto.subtle.sign(
     "HMAC",
