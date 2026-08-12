@@ -289,7 +289,8 @@ export class Client {
     const headers = options.headers ?? new Headers();
     headers.set("host", host);
     const queryAsString = typeof options.query === "object"
-      ? new URLSearchParams(options.query).toString().replace("+", "%20") // Signing requires spaces become %20, never +
+      // Signing requires spaces become %20, never + (and S3 does not form-decode '+' back into a space)
+      ? new URLSearchParams(options.query).toString().replaceAll("+", "%20")
       : (options.query);
 
     const basePath = this.pathStyle

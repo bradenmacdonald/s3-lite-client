@@ -237,6 +237,23 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: "getObject() can specify response params",
+  fn: async () => {
+    const contents = "This is the contents of the file. 😎";
+    await client.putObject("test-get3.txt", contents);
+
+    const responseParams = {
+      "response-content-disposition": `attachment; filename="my file.txt"`, // test multiple spaces
+      "response-cache-control": "public, max-age=100",
+    };
+    const response = await client.getObject("test-get3.txt", { responseParams });
+    assertEquals(await response.text(), contents);
+    assertEquals(response.headers.get("Content-Disposition"), `attachment; filename="my file.txt"`);
+    assertEquals(response.headers.get("Cache-Control"), "public, max-age=100");
+  },
+});
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // non-ascii characters in URLs
 
@@ -335,13 +352,17 @@ Deno.test({
     const contents = "This is the contents of the file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
     await client.putObject("test-presigned.cstm", contents);
     const presignedUrl = await client.presignedGetObject("test-presigned.cstm", {
-      // Also try overriding a response parameter
-      responseParams: { "response-content-type": "custom/content-type" },
+      // Also try overriding response parameters
+      responseParams: {
+        "response-content-type": "custom/content-type",
+        "response-content-disposition": `attachment; filename="my file.txt"`,
+      },
     });
     // Now use the pre-signed URL to download the file
     const response = await fetch(presignedUrl);
     assertEquals(await response.text(), contents);
-    assertEquals(await response.headers.get("Content-Type"), "custom/content-type");
+    assertEquals(response.headers.get("Content-Type"), "custom/content-type");
+    assertEquals(response.headers.get("Content-Disposition"), `attachment; filename="my file.txt"`);
   },
 });
 

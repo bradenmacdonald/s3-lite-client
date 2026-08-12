@@ -106,7 +106,8 @@ export async function presignV4(request: {
   if (request.sessionToken) {
     newQuery.set("X-Amz-Security-Token", request.sessionToken);
   }
-  const newQueryString = newQuery.toString().replace("+", "%20"); // Signing requires spaces become %20, never +
+  // Signing requires spaces become %20, never + (and S3 does not form-decode '+' back into a space)
+  const newQueryString = newQuery.toString().replaceAll("+", "%20");
   const signingPath = resource + "?" + newQueryString;
   const encodedPath = resource.split("/").map((part) => encodeURIComponent(part)).join("/");
 
