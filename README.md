@@ -41,7 +41,10 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
   - Like `getObject`, this also supports streaming the response if you want to.
 - Upload an object: `client.putObject("key", streamOrData, options)`
   - Can upload from a `string`, `Uint8Array`, or `ReadableStream`
-  - Can split large uploads into multiple parts and uploads parts in parallel.
+  - Can split large uploads into multiple parts, and uploads a limited number of parts in parallel.
+  - Uploads of 64MB or more are split into 64MB parts by default. Since S3 allows at most 10,000 parts, that supports
+    objects up to 640GB; to upload something bigger, or to stream something bigger without passing `size`, pass a larger
+    `partSize` (up to 5GB).
   - Can set custom headers, ACLs, and other metadata on the new object (example below).
 - Copy an object: `client.copyObject({ sourceKey: "source", options }, "dest", options)`
   - Can copy between different buckets.

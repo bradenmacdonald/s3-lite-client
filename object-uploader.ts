@@ -10,6 +10,43 @@ const multipartTagAlongMetadataKeys = [
 ];
 
 /**
+ * How many parts of a multi-part upload we will upload in parallel. Each part in flight is held in
+ * memory until the server has accepted it, so this puts an upper bound on how much memory an upload
+ * can use (roughly this many times the part size).
+ */
+const maxConcurrentParts = 4;
+
+/** The maximum number of parts in a multi-part upload. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
+const maxParts = 10_000;
+
+/**
+ * Upload an object using a single PUT request, and return the resulting object info.
+ *
+ * This can only be used for objects up to 5GB, and is what we use whenever the data is small enough
+ * that we don't need a multi-part upload.
+ */
+export async function uploadSingleRequest(
+  { client, metadata, ...requestArgs }: {
+    client: Client;
+    bucketName: string;
+    objectName: string;
+    metadata: Record<string, string>;
+    payload: Uint8Array_ | string;
+  },
+): Promise<UploadedObjectInfo> {
+  const response = await client.makeRequest({
+    method: "PUT",
+    // Set user metadata as this is not a multipart upload. (makeRequest sets Content-Length for us.)
+    headers: new Headers(metadata),
+    ...requestArgs,
+  });
+  return {
+    etag: sanitizeETag(response.headers.get("etag") ?? undefined),
+    versionId: getVersionId(response.headers),
+  };
+}
+
+/**
  * Stream a file to S3
  *
  * We assume that TransformChunkSizes has been used first, so that this stream
@@ -37,8 +74,12 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
     const etags: { part: number; etag: string }[] = [];
     /** If an error occurs during multi-part uploads, we temporarily store it here. */
     let multiUploadError: Error | undefined;
-    /** If doing multi-part upload, this holds a promise for each part so we can upload them in parallel */
-    const partsPromises: Promise<Response | void>[] = [];
+    /**
+     * If doing a multi-part upload, this holds a promise for each part that is currently being
+     * uploaded, so that we can upload several parts in parallel but never more than
+     * `maxConcurrentParts` at once. Each promise removes itself from the set once it has settled.
+     */
+    const partsInFlight = new Set<Promise<void>>();
 
     super({
       start() {}, // required
@@ -49,23 +90,14 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
         try {
           // We are going to upload this file in a single part, because it's small enough
           if (partNumber == 1 && chunk.length < partSize) {
-            // PUT the chunk in a single request — use an empty query.
-            const response = await client.makeRequest({
-              method,
-              headers: new Headers({
-                // Set user metadata as this is not a multipart upload
-                ...metadata,
-                "Content-Length": String(chunk.length),
-              }),
-              bucketName,
-              objectName,
-              payload: chunk,
-            });
-            result = {
-              etag: sanitizeETag(response.headers.get("etag") ?? undefined),
-              versionId: getVersionId(response.headers),
-            };
+            result = await uploadSingleRequest({ client, bucketName, objectName, metadata, payload: chunk });
             return;
+          }
+          if (partNumber > maxParts) {
+            throw new Error(
+              `Cannot upload more than ${maxParts} parts. If you are uploading a stream of unknown size, ` +
+                `specify its "size" or use a larger "partSize" (currently ${partSize} bytes).`,
+            );
           }
 
           /// If we get here, this is a streaming upload in multiple parts.
@@ -87,7 +119,12 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
               partHeaders[key] = value;
             }
           }
-          const partPromise = client.makeRequest({
+          // We can't `await` the upload of this part now, because that will cause the uploads to
+          // happen in series instead of parallel. But we don't want to let the promise
+          // throw an exception when we haven't awaited it, because that can cause the
+          // process to crash. So use .catch() to watch for errors and store them in
+          // `multiUploadError` if they occur.
+          const partPromise: Promise<void> = client.makeRequest({
             method,
             query: { partNumber: partNumber.toString(), uploadId },
             headers: new Headers(partHeaders),
@@ -97,19 +134,20 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
           }).then((response) => {
             // In order to aggregate the parts together, we need to collect the etags.
             etags.push({ part: partNumber, etag: sanitizeETag(response.headers.get("etag") ?? undefined) });
-            return response;
-          });
-          // We can't `await partPromise` now, because that will cause the uploads to
-          // happen in series instead of parallel. But we don't want to let the promise
-          // throw an exception when we haven't awaited it, because that can cause the
-          // process to crash. So use .catch() to watch for errors and store them in
-          // `multiUploadError` if they occur.
-          partsPromises.push(partPromise.catch((err) => {
+          }).catch((err) => {
             // An error occurred when uploading this one part:
             if (!multiUploadError) {
               multiUploadError = err;
             }
-          }));
+          }).finally(() => {
+            partsInFlight.delete(partPromise);
+          });
+          partsInFlight.add(partPromise);
+          // Don't start uploading the next part until one of the parts in flight has finished.
+          // Without this, a large upload would read the whole stream into memory at once.
+          if (partsInFlight.size >= maxConcurrentParts) {
+            await Promise.race(partsInFlight);
+          }
         } catch (err) {
           // Throwing an error will make future writes to this sink fail.
           throw err;
@@ -120,7 +158,7 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
           // This was already completed, in a single upload. Nothing more to do.
         } else if (uploadId) {
           // Wait for all parts to finish uploading (or fail)
-          await Promise.all(partsPromises);
+          await Promise.all(partsInFlight);
           if (multiUploadError) {
             // One or more parts failed to upload:
             throw multiUploadError;
@@ -130,7 +168,15 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
           // Complete the multi-part upload
           result = await completeMultipartUpload({ client, bucketName, objectName, uploadId, etags });
         } else {
-          throw new Error("Stream was closed without uploading any data.");
+          // The stream closed without ever producing a chunk, so this is an empty object. S3
+          // supports those, and this is what you get if you upload an empty string/Uint8Array.
+          result = await uploadSingleRequest({
+            client,
+            bucketName,
+            objectName,
+            metadata,
+            payload: new Uint8Array(),
+          });
         }
       },
     });
