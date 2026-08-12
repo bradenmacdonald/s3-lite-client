@@ -164,15 +164,8 @@ function getHeadersToSign(headers: Headers): string[] {
     "content-type",
     "user-agent",
   ];
-  const headersToSign = [];
-  for (const key of headers.keys()) {
-    if (ignoredHeaders.includes(key.toLowerCase())) {
-      continue; // Ignore this header
-    }
-    headersToSign.push(key);
-  }
-  headersToSign.sort();
-  return headersToSign;
+  // Headers.keys() yields lowercased names, and the spec requires them to be sorted.
+  return [...headers.keys()].filter((key) => !ignoredHeaders.includes(key));
 }
 
 /**
@@ -219,12 +212,11 @@ function getCanonicalRequest(
   headersToSign: string[],
   payloadHash: string,
 ): string {
-  const headersArray = headersToSign.reduce<string[]>((acc, headerKey) => {
+  const headersArray = headersToSign.map((headerKey) => {
     // Trim spaces from the value (required by V4 spec)
     const val = `${headers.get(headerKey)}`.replace(/ +/g, " ");
-    acc.push(`${headerKey.toLowerCase()}:${val}`);
-    return acc;
-  }, []);
+    return `${headerKey.toLowerCase()}:${val}`;
+  });
 
   const requestResource = path.split("?")[0];
   let requestQuery = path.split("?")[1];

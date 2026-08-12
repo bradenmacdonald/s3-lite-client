@@ -256,6 +256,28 @@ Deno.test({
         "x-amz-storage-class",
       ],
     );
+
+    // The result must be lowercased and sorted regardless of how the headers were given to us, since
+    // SigV4 signs the names in that exact form. Here they're added in a jumbled order and case, and
+    // the headers we never sign are spelled unusually:
+    assertEquals(
+      getHeadersToSign(
+        new Headers({
+          "X-Amz-Storage-Class": "GLACIER",
+          "AUTHORIZATION": "should be ignored",
+          "cache-CONTROL": "no-cache",
+          "Content-TYPE": "should be ignored",
+          "USER-AGENT": "should be ignored",
+          "Content-Length": "12",
+          "hOsT": "s3.amazonaws.com",
+          "X-Amz-Date": "20211026T180728Z",
+        }),
+      ),
+      ["cache-control", "host", "x-amz-date", "x-amz-storage-class"],
+    );
+
+    // No headers at all is not an error:
+    assertEquals(getHeadersToSign(new Headers()), []);
   },
 });
 
