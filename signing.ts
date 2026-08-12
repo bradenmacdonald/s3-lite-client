@@ -351,51 +351,38 @@ export async function presignPostV4(request: {
   const credential = getCredential(request.accessKey, request.region, request.date);
   const iso8601Date = makeDateLong(request.date);
 
-  // Default required policy fields
   const fields: Record<string, string> = {
+    // Default required policy fields
+    "key": request.objectKey,
     "X-Amz-Algorithm": signV4Algorithm,
     "X-Amz-Credential": credential,
     "X-Amz-Date": iso8601Date,
-    "key": request.objectKey,
-    ...request.fields,
   };
+  for (const [name, value] of Object.entries(request.fields ?? {})) {
+    if (name in fields) {
+      throw new errors.InvalidArgumentError(`The "${name}" field cannot be passed in fields`);
+    }
+    fields[name] = value;
+  }
 
-  // Build policy document
+  // S3 rejects the upload unless every POSTed field is also constrained by the policy, so derive the
+  // conditions from the fields themselves; that way the two can never disagree.
   const conditions: PolicyCondition[] = [
     { bucket: request.bucket },
-    { key: request.objectKey },
-    { "X-Amz-Algorithm": signV4Algorithm },
-    { "X-Amz-Credential": credential },
-    { "X-Amz-Date": iso8601Date },
+    ...Object.entries(fields).map(([name, value]) => ({ [name]: value })),
+    ...request.conditions ?? [],
   ];
-
-  // Add any additional conditions provided by the user
-  if (request.conditions) {
-    conditions.push(...request.conditions);
-  }
-
-  // Add additional fields as conditions
-  for (const [key, value] of Object.entries(request.fields || {})) {
-    // Skip fields that we've already added to conditions
-    if (["key", "X-Amz-Algorithm", "X-Amz-Credential", "X-Amz-Date"].includes(key)) continue;
-    conditions.push({ [key]: value });
-  }
-
-  const policy = {
-    expiration: expiration.toISOString(),
-    conditions,
-  };
+  const policy = { expiration: expiration.toISOString(), conditions };
 
   // Convert policy to base64
   const policyBytes = new TextEncoder().encode(JSON.stringify(policy));
   const base64Policy = btoa(String.fromCharCode(...policyBytes));
-  fields["policy"] = base64Policy;
-
-  // Calculate signature
-  const stringToSign = base64Policy;
   const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
-  const signature = bin2hex(await sha256hmac(signingKey, stringToSign)).toLowerCase();
-  fields["X-Amz-Signature"] = signature;
+
+  // "policy" and "X-Amz-Signature" are the only two fields exempt from the above rule, so they're
+  // added afterwards, once the policy they describe is fixed.
+  fields["policy"] = base64Policy;
+  fields["X-Amz-Signature"] = bin2hex(await sha256hmac(signingKey, base64Policy)).toLowerCase();
 
   // Construct the URL
   const url = `${request.protocol}//${request.host}/${request.bucket}`;
