@@ -7,6 +7,7 @@ import {
   isValidPrefix,
   makeDateLong,
   makeDateShort,
+  sanitizeETag,
   sha256digestHex,
 } from "./helpers.ts";
 
@@ -125,6 +126,37 @@ Deno.test({
       bin2hex(new Uint8Array([0xab, 0xcd, 0x00, 0x01, 0x00, 0xc0, 0xff, 0xee])),
       "abcd000100c0ffee",
     );
+  },
+});
+
+Deno.test({
+  name: "sanitizeETag",
+  fn: () => {
+    // The two forms we actually receive: an ETag response header holds literal quotes, and an <ETag>
+    // from an XML body is still escaped, because the XML parser doesn't decode &#34; or &quot;.
+    assertEquals(sanitizeETag(`"d41d8cd98f00b204e9800998ecf8427e"`), "d41d8cd98f00b204e9800998ecf8427e");
+    assertEquals(sanitizeETag("&#34;4581589392ae60eafdb031f441858c7a-7&#34;"), "4581589392ae60eafdb031f441858c7a-7");
+    assertEquals(sanitizeETag("&quot;abc&quot;"), "abc");
+    // The two ends are matched independently, so mixed spellings work too:
+    assertEquals(sanitizeETag(`&#34;abc"`), "abc");
+    assertEquals(sanitizeETag(`&quot;abc&#34;`), "abc");
+    // An unquoted ETag, or a quote on only one end, is handled without complaint:
+    assertEquals(sanitizeETag("abc"), "abc");
+    assertEquals(sanitizeETag(`"abc`), "abc");
+    assertEquals(sanitizeETag(`abc"`), "abc");
+    // A missing ETag becomes an empty string rather than throwing:
+    assertEquals(sanitizeETag(undefined), "");
+    assertEquals(sanitizeETag(), "");
+    // Degenerate values that are nothing but quotes:
+    assertEquals(sanitizeETag(`"`), "");
+    assertEquals(sanitizeETag(`""`), "");
+    assertEquals(sanitizeETag("&#34;"), "");
+    // Only one quote comes off each end...
+    assertEquals(sanitizeETag(`""abc""`), `"abc"`);
+    assertEquals(sanitizeETag("&#34;&#34;abc&#34;&#34;"), "&#34;abc&#34;");
+    // ...and quotes in the middle are never touched:
+    assertEquals(sanitizeETag(`a"b`), `a"b`);
+    assertEquals(sanitizeETag(`"a"b"`), `a"b`);
   },
 });
 

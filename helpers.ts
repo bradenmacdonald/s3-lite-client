@@ -49,11 +49,7 @@ export function isValidBucketName(bucket: string): boolean {
  * check if objectName is a valid object name
  * http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
  */
-export function isValidObjectName(objectName: string) {
-  if (!isValidPrefix(objectName)) return false;
-  if (objectName.length === 0) return false;
-  return true;
-}
+export const isValidObjectName = (n: string) => isValidPrefix(n) && n.length > 0;
 
 // check if prefix is valid
 export function isValidPrefix(prefix: string) {
@@ -75,18 +71,20 @@ export function bin2hex(binary: Uint8Array) {
   );
 }
 
+/**
+ * Strip the quotes that S3 wraps around an ETag value.
+ *
+ * How the quotes are written depends on where the ETag came from: an `ETag` response header holds
+ * literal double quotes (`"abc"`), while an `<ETag>` read out of an XML response body is still
+ * escaped (`&#34;abc&#34;`), because our XML parser only decodes `&lt;`, `&gt;` and `&amp;`.
+ *
+ * Only one quote is removed from each end, and only these three spellings are recognized: `"`,
+ * `&quot;` and `&#34;`. Any quote in the middle of the value is left alone.
+ *
+ * @param etag the raw ETag, or undefined if the server didn't send one (which gives "")
+ */
 export function sanitizeETag(etag = "") {
-  const replaceChars: Record<string, string> = {
-    '"': "",
-    "&quot;": "",
-    "&#34;": "",
-    "&QUOT;": "",
-    "&#x00022": "",
-  };
-  return etag.replace(
-    /^("|&quot;|&#34;)|("|&quot;|&#34;)$/g,
-    (m) => replaceChars[m],
-  );
+  return etag.replace(/^(?:"|&quot;|&#34;)|(?:"|&quot;|&#34;)$/g, "");
 }
 
 export function getVersionId(headers: Headers): string | null {
@@ -95,14 +93,8 @@ export function getVersionId(headers: Headers): string | null {
 
 /** Create a Date string with format: 'YYYYMMDDTHHmmss' + Z */
 export function makeDateLong(date: Date) {
-  // Gives format like: '2017-08-07T16:28:59.889Z'
-  const dateStr = date.toISOString();
-
-  return dateStr.slice(0, 4) +
-    dateStr.slice(5, 7) +
-    dateStr.slice(8, 13) +
-    dateStr.slice(14, 16) +
-    dateStr.slice(17, 19) + "Z";
+  // toISOString() gives format like: '2017-08-07T16:28:59.889Z'
+  return date.toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
 }
 
 /** Create a Date string with format: 'YYYYMMDD' */
