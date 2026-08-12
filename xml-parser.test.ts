@@ -59,6 +59,21 @@ Deno.test({
 });
 
 Deno.test({
+  name: "parse - malformed input never pulls content in from further along the document",
+  fn: () => {
+    // Every regex the parser uses is anchored, so it can only ever consume from the position it has
+    // reached. Here `!!!` is not a valid attribute, so <Root> simply ends up with no attributes --
+    // the parser must not go looking further ahead and adopt <Child>'s attribute as its own.
+    const root = parse(`<Root !!!><Child attr="x">value</Child></Root>`);
+    assertEquals(root?.name, "Root");
+    assertEquals(root?.attributes, {});
+
+    // The same applies when the junk appears where the closing '>' of the tag should be:
+    assertEquals(parse(`<Root !!!<Other id="9"/></Root>`)?.attributes, {});
+  },
+});
+
+Deno.test({
   name: "childText",
   fn: () => {
     // A realistic ListObjectsV2 response:

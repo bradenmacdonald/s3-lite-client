@@ -60,7 +60,7 @@ export function parse(xml: string): Xml | undefined {
       return node;
     }
 
-    match(/\??>\s*/);
+    match(/^\??>\s*/);
 
     // content
     node.content = content();
@@ -90,7 +90,7 @@ export function parse(xml: string): Xml | undefined {
    * Attribute.
    */
   function attribute() {
-    const m = match(/([\w:-]+)\s*=\s*("[^"]*"|'[^']*'|\w+)\s*/);
+    const m = match(/^([\w:-]+)\s*=\s*("[^"]*"|'[^']*'|\w+)\s*/);
     if (!m) return;
     return { name: m[1], value: entities(strip(m[2])) };
   }
@@ -109,6 +109,10 @@ export function parse(xml: string): Xml | undefined {
 
   /**
    * Match `re` and advance the string.
+   *
+   * Every `re` must be anchored with `^`. An unanchored pattern would be free to match somewhere
+   * further along in the document and then discard everything before it, so malformed input would
+   * silently skip over content instead of failing here.
    */
   function match(re: RegExp) {
     const m = xml.match(re);
