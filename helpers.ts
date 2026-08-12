@@ -6,6 +6,9 @@
  */
 export type Uint8Array_ = ReturnType<Uint8Array["slice"]>;
 
+/** A TextEncoder is stateless, so we share a single one instead of allocating one per call. */
+export const encoder = new TextEncoder();
+
 export function isValidPort(port: number) {
   // verify if port is a number.
   if (typeof port !== "number" || isNaN(port)) {
@@ -108,7 +111,7 @@ export function getScope(region: string, date: Date) {
 
 export async function sha256digestHex(data: Uint8Array_ | string) {
   if (!(data instanceof Uint8Array)) {
-    data = new TextEncoder().encode(data);
+    data = encoder.encode(data);
   }
   return bin2hex(new Uint8Array(await crypto.subtle.digest("SHA-256", data)));
 }

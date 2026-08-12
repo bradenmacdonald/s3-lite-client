@@ -1,6 +1,7 @@
 import { TransformChunkSizes } from "./transform-chunk-sizes.ts";
 import * as errors from "./errors.ts";
 import {
+  encoder,
   isValidBucketName,
   isValidObjectName,
   isValidPort,
@@ -348,7 +349,7 @@ export class Client {
       if (payload === undefined) {
         payload = new Uint8Array();
       } else if (typeof payload === "string") {
-        payload = new TextEncoder().encode(payload);
+        payload = encoder.encode(payload);
       }
       headers.set("Content-Length", String(payload.length));
     } else if (payload) {
@@ -770,9 +771,7 @@ export class Client {
       stream = streamOrData;
     } else {
       // If we've been given a string, convert to binary using UTF-8.
-      const bytes: Uint8Array_ = typeof streamOrData === "string"
-        ? new TextEncoder().encode(streamOrData)
-        : streamOrData;
+      const bytes: Uint8Array_ = typeof streamOrData === "string" ? encoder.encode(streamOrData) : streamOrData;
       if (!(bytes instanceof Uint8Array)) throw new errors.InvalidArgumentError(`Invalid stream/data type provided.`);
       size = bytes.byteLength;
       stream = new Blob([bytes]).stream();

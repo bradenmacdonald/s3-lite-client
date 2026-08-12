@@ -1,5 +1,13 @@
 import * as errors from "./errors.ts";
-import { bin2hex, getScope, makeDateLong, makeDateShort, sha256digestHex, type Uint8Array_ } from "./helpers.ts";
+import {
+  bin2hex,
+  encoder,
+  getScope,
+  makeDateLong,
+  makeDateShort,
+  sha256digestHex,
+  type Uint8Array_,
+} from "./helpers.ts";
 
 const signV4Algorithm = "AWS4-HMAC-SHA256";
 
@@ -286,10 +294,9 @@ async function sha256hmac(
   secretKey: Uint8Array_ | string,
   data: Uint8Array_ | string,
 ): Promise<Uint8Array_> {
-  const enc = new TextEncoder();
   const keyObject = await crypto.subtle.importKey(
     "raw", // raw format of the key - should be Uint8Array
-    secretKey instanceof Uint8Array ? secretKey : enc.encode(secretKey),
+    secretKey instanceof Uint8Array ? secretKey : encoder.encode(secretKey),
     { name: "HMAC", hash: { name: "SHA-256" } }, // algorithm
     false, // export = false
     ["sign", "verify"], // what this key can do
@@ -297,7 +304,7 @@ async function sha256hmac(
   const signature = await crypto.subtle.sign(
     "HMAC",
     keyObject,
-    data instanceof Uint8Array ? data : enc.encode(data),
+    data instanceof Uint8Array ? data : encoder.encode(data),
   );
   return new Uint8Array(signature);
 }
@@ -367,7 +374,7 @@ export async function presignPostV4(request: {
   const policy = { expiration: expiration.toISOString(), conditions };
 
   // Convert policy to base64
-  const policyBytes = new TextEncoder().encode(JSON.stringify(policy));
+  const policyBytes = encoder.encode(JSON.stringify(policy));
   const base64Policy = btoa(String.fromCharCode(...policyBytes));
   const signingKey = await getSigningKey(request.date, request.region, request.secretKey);
 

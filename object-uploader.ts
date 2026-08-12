@@ -1,5 +1,5 @@
 import type { Client, ObjectMetadata, UploadedObjectInfo } from "./client.ts";
-import { getVersionId, sanitizeETag, type Uint8Array_ } from "./helpers.ts";
+import { encoder, getVersionId, sanitizeETag, type Uint8Array_ } from "./helpers.ts";
 import { childText, parse as parseXML } from "./xml-parser.ts";
 
 // Metadata headers that must be included in each part of a multi-part upload
@@ -204,7 +204,7 @@ async function completeMultipartUpload(
     bucketName,
     objectName,
     query: `uploadId=${encodeURIComponent(uploadId)}`,
-    payload: new TextEncoder().encode(payload),
+    payload: encoder.encode(payload),
     returnBody: true,
   });
   const responseText = await response.text();
