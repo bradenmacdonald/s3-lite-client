@@ -358,10 +358,9 @@ Deno.test({
       () => client.copyObject({ sourceKey: "source.txt" }, loneSurrogate),
       S3Errors.InvalidObjectNameError,
     );
-    // These three return a Promise but validate synchronously, so they throw rather than reject:
-    assertThrows(() => client.getPresignedUrl("GET", loneSurrogate), S3Errors.InvalidObjectNameError);
-    assertThrows(() => client.presignedGetObject(loneSurrogate), S3Errors.InvalidObjectNameError);
-    assertThrows(() => client.presignedPostObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    assertRejects(() => client.getPresignedUrl("GET", loneSurrogate), S3Errors.InvalidObjectNameError);
+    assertRejects(() => client.presignedGetObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    assertRejects(() => client.presignedPostObject(loneSurrogate), S3Errors.InvalidObjectNameError);
   },
 });
 
