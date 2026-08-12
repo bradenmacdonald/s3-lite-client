@@ -495,17 +495,7 @@ export class Client {
     const headers = new Headers(Object.entries(options.metadata ?? {}));
     let statusCode = 200; // Expected status code
     if (offset || length) {
-      let range = "";
-      if (offset) {
-        range = `bytes=${+offset}-`;
-      } else {
-        range = "bytes=0-";
-        offset = 0;
-      }
-      if (length) {
-        range += `${(+length + offset) - 1}`;
-      }
-      headers.set("Range", range);
+      headers.set("Range", `bytes=${offset || 0}-${length ? (offset || 0) + length - 1 : ""}`);
       statusCode = 206; // HTTP 206 "Partial Content"
     }
 
