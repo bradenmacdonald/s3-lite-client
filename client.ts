@@ -824,7 +824,7 @@ export class Client {
     if (partSize < minimumPartSize) {
       throw new errors.InvalidArgumentError(`Part size should be greater than 5MB`);
     } else if (partSize > maximumPartSize) {
-      throw new errors.InvalidArgumentError(`Part size should be less than 6MB`);
+      throw new errors.InvalidArgumentError(`Part size should be less than 5GB`);
     }
 
     // s3 requires that all non-end chunks be at least `this.partSize`,
@@ -847,11 +847,11 @@ export class Client {
   }
 
   /**
-   * Calculate part size given the object size. Part size will be at least this.partSize.
+   * Calculate part size given the object size. Part size will be at least `partSize`.
    *
    * Per https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html we have to
    * stick to the following rules:
-   * - part size between 5MB (this.maximumPartSize) and 5GB (this.maxObjectSize)
+   * - part size between 5MB (maximumPartSize) and 5GB (maxObjectSize)
    *   (the final part can be smaller than 5MB however)
    * - maximum of 10,000 parts per upload
    * - maximum object size of 5TB
