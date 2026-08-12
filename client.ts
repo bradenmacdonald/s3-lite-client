@@ -753,7 +753,7 @@ export class Client {
    */
   async putObject(
     objectName: string,
-    streamOrData: ReadableStream<Uint8Array> | Uint8Array | string,
+    streamOrData: ReadableStream<Uint8Array> | Uint8Array_ | string,
     options?: {
       metadata?: ObjectMetadata;
       size?: number;
@@ -774,33 +774,16 @@ export class Client {
     // Prepare a readable stream for the upload:
     let size: number | undefined;
     let stream: ReadableStream<Uint8Array>;
-    if (typeof streamOrData === "string") {
-      // Convert to binary using UTF-8
-      const binaryData = new TextEncoder().encode(streamOrData);
-      if (typeof ReadableStream.from !== "undefined") {
-        stream = ReadableStream.from([binaryData]);
-      } else {
-        // ReadableStream.from is not yet supported by some runtimes :/
-        // https://github.com/oven-sh/bun/issues/3700
-        // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static#browser_compatibility
-        // deno-fmt-ignore
-        stream = new ReadableStream({ start(c) { c.enqueue(binaryData); c.close(); } });
-      }
-      size = binaryData.length;
-    } else if (streamOrData instanceof Uint8Array) {
-      if (typeof ReadableStream.from !== "undefined") {
-        stream = ReadableStream.from([streamOrData]);
-      } else {
-        // deno-fmt-ignore
-        stream = new ReadableStream({ start(c) { c.enqueue(streamOrData); c.close(); } });
-      }
-      size = streamOrData.byteLength;
-    } else if (streamOrData instanceof ReadableStream) {
+    if (streamOrData instanceof ReadableStream) {
       stream = streamOrData;
     } else {
-      throw new errors.InvalidArgumentError(
-        `Invalid stream/data type provided.`,
-      );
+      // If we've been given a string, convert to binary using UTF-8.
+      const bytes: Uint8Array_ = typeof streamOrData === "string"
+        ? new TextEncoder().encode(streamOrData)
+        : streamOrData;
+      if (!(bytes instanceof Uint8Array)) throw new errors.InvalidArgumentError(`Invalid stream/data type provided.`);
+      size = bytes.byteLength;
+      stream = new Blob([bytes]).stream();
     }
 
     // Validate the size parameter
