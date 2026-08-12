@@ -18,10 +18,6 @@ export class S3Error extends Error {
   }
 }
 
-// Preserve API compatibility with the old name:
-/** @deprecated Use `S3Error` instead. */
-export const DenoS3LiteClientError = S3Error;
-
 /**
  * An argument or configuration parameter was invalid.
  */
