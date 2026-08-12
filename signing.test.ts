@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert/equals";
+import { assertStringIncludes } from "@std/assert/string-includes";
 import { bin2hex } from "./helpers.ts";
 import { _internalMethods as methods, presignPostV4, presignV4, signV4 } from "./signing.ts";
 
@@ -80,6 +81,30 @@ Deno.test({
       urlActual,
       "https://localhost:9000/bucket/object?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA_TEST_ACCESS_KEY%2F20211026%2Fca-central-1%2Fs3%2Faws4_request&X-Amz-Date=20211026T180728Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=def1ddcb522798495b6b72970222eceef7d6070f131d12d819b81fb308503dfe",
     );
+  },
+});
+
+Deno.test({
+  name: "presignV4 - encodes spaces as %20 in every query parameter, not just the first",
+  fn: async () => {
+    const urlActual = await presignV4({
+      protocol: "https:",
+      method: "GET",
+      path: "/bucket/object?p1=one%20space&p2=two%20spaces%20here",
+      headers: new Headers({
+        host: "localhost:9000",
+      }),
+      accessKey: "AKIA_TEST_ACCESS_KEY",
+      secretKey: "ThisIsTheSecret",
+      region: "ca-central-1",
+      date: new Date("2021-10-26T18:07:28.492Z"),
+      expirySeconds: 60 * 60,
+    });
+    // S3 does not form-decode query strings, so a literal '+' is delivered to the server as '+' and
+    // not as a space. Every parameter must therefore use %20, not only whichever one comes first.
+    assertEquals(urlActual.includes("+"), false, "Presigned URL should not contain any unencoded '+' character");
+    assertStringIncludes(urlActual, "p1=one%20space");
+    assertStringIncludes(urlActual, "p2=two%20spaces%20here");
   },
 });
 
