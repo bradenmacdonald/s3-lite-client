@@ -6,14 +6,7 @@
  * "Simple non-compliant XML parser because we just need to parse some basic responses"
  */
 
-interface Document {
-  declaration: {
-    attributes: Record<string, string>;
-  };
-  root: Xml | undefined;
-}
-
-interface Xml {
+export interface Xml {
   name: string;
   attributes: Record<string, string>;
   content?: string;
@@ -21,50 +14,25 @@ interface Xml {
 }
 
 /**
- * Parse the given string of `xml`.
+ * Get the text content of the first child element with the given name, if there is one.
  */
-export function parse(xml: string): Document {
+export function childText(node: Xml, name: string): string | undefined {
+  return node.children.find((c) => c.name === name)?.content;
+}
+
+/**
+ * Parse the given string of `xml` and return its root element, if it has one.
+ */
+export function parse(xml: string): Xml | undefined {
   xml = xml.trim();
 
   // strip comments
   xml = xml.replace(/<!--[\s\S]*?-->/g, "");
 
-  return document();
+  // skip the declaration, e.g. <?xml version="1.0" encoding="UTF-8"?> - we never look at it
+  match(/^<\?xml[\s\S]*?\?>\s*/);
 
-  /**
-   * XML document.
-   */
-  function document(): Document {
-    return {
-      declaration: declaration(),
-      root: tag(),
-    };
-  }
-
-  /**
-   * Declaration.
-   */
-  function declaration() {
-    const m = match(/^<\?xml\s*/);
-    if (!m) return;
-
-    // tag.
-    // deno-lint-ignore no-explicit-any
-    const node: any = {
-      attributes: {},
-    };
-
-    // attributes
-    while (!(eos() || is("?>"))) {
-      const attr = attribute();
-      if (!attr) return node;
-      node.attributes[attr.name] = attr.value;
-    }
-
-    match(/\?>\s*/);
-
-    return node;
-  }
+  return tag();
 
   /**
    * Tag.

@@ -4,7 +4,7 @@
  * Every error is a subclass of S3Error.
  */
 
-import { parse as parseXML } from "./xml-parser.ts";
+import { childText, parse as parseXML } from "./xml-parser.ts";
 
 /**
  * Base class for all errors raised by this S3 client.
@@ -100,19 +100,21 @@ export class ServerError extends S3Error {
 /** Helper function to parse an error returned by the S3 server. */
 export async function parseServerError(response: Response): Promise<ServerError> {
   try {
-    const xmlParsed = parseXML(await response.text());
-    const errorRoot = xmlParsed.root;
+    const errorRoot = parseXML(await response.text());
     if (errorRoot?.name !== "Error") {
       throw new Error("Invalid root, expected <Error>");
     }
-    const code = errorRoot.children.find((c) => c.name === "Code")?.content ?? "UnknownErrorCode";
-    const message = errorRoot.children.find((c) => c.name === "Message")?.content ??
-      "The error message could not be determined.";
-    const key = errorRoot.children.find((c) => c.name === "Key")?.content;
-    const bucketName = errorRoot.children.find((c) => c.name === "BucketName")?.content;
-    const resource = errorRoot.children.find((c) => c.name === "Resource")?.content; // e.g. the object key
-    const region = errorRoot.children.find((c) => c.name === "Region")?.content;
-    return new ServerError(response.status, code, message, { key, bucketName, resource, region });
+    return new ServerError(
+      response.status,
+      childText(errorRoot, "Code") ?? "UnknownErrorCode",
+      childText(errorRoot, "Message") ?? "The error message could not be determined.",
+      {
+        key: childText(errorRoot, "Key"),
+        bucketName: childText(errorRoot, "BucketName"),
+        resource: childText(errorRoot, "Resource"), // e.g. the object key
+        region: childText(errorRoot, "Region"),
+      },
+    );
   } catch {
     return new ServerError(
       response.status,

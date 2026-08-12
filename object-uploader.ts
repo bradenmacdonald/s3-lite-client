@@ -1,6 +1,6 @@
 import type { Client, ObjectMetadata, UploadedObjectInfo } from "./client.ts";
 import { getVersionId, sanitizeETag, type Uint8Array_ } from "./helpers.ts";
-import { parse as parseXML } from "./xml-parser.ts";
+import { childText, parse as parseXML } from "./xml-parser.ts";
 
 // Metadata headers that must be included in each part of a multi-part upload
 const multipartTagAlongMetadataKeys = [
@@ -174,11 +174,11 @@ async function initiateNewMultipartUpload(
   //   <UploadId>422f976b-35e0-4a55-aca7-bf2d46277f93</UploadId>
   // </InitiateMultipartUploadResult>
   const responseText = await response.text();
-  const root = parseXML(responseText).root;
-  if (!root || root.name !== "InitiateMultipartUploadResult") {
+  const root = parseXML(responseText);
+  if (root?.name !== "InitiateMultipartUploadResult") {
     throw new Error(`Unexpected response: ${responseText}`);
   }
-  const uploadId = root.children.find((c) => c.name === "UploadId")?.content;
+  const uploadId = childText(root, "UploadId");
   if (!uploadId) {
     throw new Error(`Unable to get UploadId from response: ${responseText}`);
   }
@@ -216,11 +216,11 @@ async function completeMultipartUpload(
   //   <Key>test-32m.dat</Key>
   //   <ETag>&#34;4581589392ae60eafdb031f441858c7a-7&#34;</ETag>
   // </CompleteMultipartUploadResult>
-  const root = parseXML(responseText).root;
-  if (!root || root.name !== "CompleteMultipartUploadResult") {
+  const root = parseXML(responseText);
+  if (root?.name !== "CompleteMultipartUploadResult") {
     throw new Error(`Unexpected response: ${responseText}`);
   }
-  const etagRaw = root.children.find((c) => c.name === "ETag")?.content;
+  const etagRaw = childText(root, "ETag");
   if (!etagRaw) throw new Error(`Unable to get ETag from response: ${responseText}`);
   const versionId = getVersionId(response.headers);
   return {

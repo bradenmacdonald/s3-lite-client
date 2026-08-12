@@ -11,7 +11,7 @@ import {
 } from "./helpers.ts";
 import { ObjectUploader } from "./object-uploader.ts";
 import { presignPostV4, presignV4, signV4 } from "./signing.ts";
-import { parse as parseXML } from "./xml-parser.ts";
+import { childText, parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
   /**
@@ -690,8 +690,8 @@ export class Client {
       const responseText = await pageResponse.text();
       // Parse the response XML.
       // See https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html#API_ListObjectsV2_ResponseSyntax
-      const root = parseXML(responseText).root;
-      if (!root || root.name !== "ListBucketResult") {
+      const root = parseXML(responseText);
+      if (root?.name !== "ListBucketResult") {
         throw new Error(`Unexpected response: ${responseText}`);
       }
       // If a delimiter was specified, first return any common prefixes from this page of results:
@@ -710,10 +710,10 @@ export class Client {
       for (const objectElement of root.children.filter((c) => c.name === "Contents")) {
         toYield.push({
           type: "Object",
-          key: objectElement.children.find((c) => c.name === "Key")?.content ?? "",
-          etag: sanitizeETag(objectElement.children.find((c) => c.name === "ETag")?.content ?? ""),
-          size: parseInt(objectElement.children.find((c) => c.name === "Size")?.content ?? "", 10),
-          lastModified: new Date(objectElement.children.find((c) => c.name === "LastModified")?.content ?? "invalid"),
+          key: childText(objectElement, "Key") ?? "",
+          etag: sanitizeETag(childText(objectElement, "ETag") ?? ""),
+          size: parseInt(childText(objectElement, "Size") ?? "", 10),
+          lastModified: new Date(childText(objectElement, "LastModified") ?? "invalid"),
         });
         resultCount++;
       }
@@ -728,10 +728,10 @@ export class Client {
       for (const entry of toYield) {
         yield entry;
       }
-      const isTruncated = root.children.find((c) => c.name === "IsTruncated")?.content === "true";
+      const isTruncated = childText(root, "IsTruncated") === "true";
       if (isTruncated) {
         // There are more results.
-        const nextContinuationToken = root.children.find((c) => c.name === "NextContinuationToken")?.content;
+        const nextContinuationToken = childText(root, "NextContinuationToken");
         if (!nextContinuationToken) {
           throw new Error("Unexpectedly missing continuation token, but server said there are more results.");
         }
@@ -969,12 +969,12 @@ export class Client {
     const responseText = await response.text();
     // Parse the response XML.
     // See https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html#API_CopyObject_ResponseSyntax
-    const root = parseXML(responseText).root;
-    if (!root || root.name !== "CopyObjectResult") {
+    const root = parseXML(responseText);
+    if (root?.name !== "CopyObjectResult") {
       throw new Error(`Unexpected response: ${responseText}`);
     }
-    const etagString = root.children.find((c) => c.name === "ETag")?.content ?? "";
-    const lastModifiedString = root.children.find((c) => c.name === "LastModified")?.content;
+    const etagString = childText(root, "ETag") ?? "";
+    const lastModifiedString = childText(root, "LastModified");
     if (lastModifiedString === undefined) {
       throw new Error("Unable to find <LastModified>...</LastModified> from the server.");
     }
