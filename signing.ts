@@ -175,17 +175,6 @@ function getHeadersToSign(headers: Headers): string[] {
   return headersToSign;
 }
 
-const CODES = {
-  A: "A".charCodeAt(0),
-  Z: "Z".charCodeAt(0),
-  a: "a".charCodeAt(0),
-  z: "z".charCodeAt(0),
-  "0": "0".charCodeAt(0),
-  "9": "9".charCodeAt(0),
-  "/": "/".charCodeAt(0),
-};
-const ALLOWED_BYTES = "-._~".split("").map((s) => s.charCodeAt(0));
-
 /**
  * Canonical URI encoding for signing, per AWS documentation:
  * 1. URI encode every byte except the unreserved characters:
@@ -200,25 +189,16 @@ const ALLOWED_BYTES = "-._~".split("").map((s) => s.charCodeAt(0));
  *
  * See https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
  *
- * @param string the string to encode.
+ * @param string the string to encode. Must be well-formed Unicode; object names are validated by
+ *   isValidObjectName() before they reach here, so a lone surrogate is a caller error and will
+ *   throw a URIError.
  */
 function awsUriEncode(string: string, allowSlashes = false) {
-  const bytes: Uint8Array = new TextEncoder().encode(string);
-  let encoded = "";
-  for (const byte of bytes) {
-    if (
-      (byte >= CODES.A && byte <= CODES.Z) ||
-      (byte >= CODES.a && byte <= CODES.z) ||
-      (byte >= CODES["0"] && byte <= CODES["9"]) ||
-      (ALLOWED_BYTES.includes(byte)) ||
-      (byte == CODES["/"] && allowSlashes)
-    ) {
-      encoded += String.fromCharCode(byte);
-    } else {
-      encoded += "%" + byte.toString(16).padStart(2, "0").toUpperCase();
-    }
-  }
-  return encoded;
+  // encodeURIComponent() already does all of the above, using uppercase hex and encoding spaces as
+  // %20, except that it leaves these five characters unencoded, which AWS considers reserved.
+  const encoded = encodeURIComponent(string)
+    .replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+  return allowSlashes ? encoded.replaceAll("%2F", "/") : encoded;
 }
 
 /**

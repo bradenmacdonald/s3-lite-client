@@ -1,5 +1,6 @@
 import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
+import { assertRejects } from "@std/assert/rejects";
 import { assertStringIncludes } from "@std/assert/string-includes";
 import { assertThrows } from "@std/assert/throws";
 import { Client } from "./client.ts";
@@ -332,6 +333,35 @@ Deno.test({
     assertEquals(unconditionalUrl.searchParams.get("X-Amz-SignedHeaders"), "host");
     // And it must change the signature:
     assert(conditionalUrl.searchParams.get("X-Amz-Signature") !== unconditionalUrl.searchParams.get("X-Amz-Signature"));
+  },
+});
+
+Deno.test({
+  name: "object keys that cannot be represented in UTF-8 are rejected before signing",
+  fn: async () => {
+    const client = new Client({
+      endPoint: "https://s3.example.com",
+      region: "us-east-1",
+      bucket: "test-bucket",
+      accessKey: "test-access-key",
+      secretKey: "test-secret-key",
+    });
+    const loneSurrogate = "dir/lone\ud800surrogate.txt";
+
+    // Every method that takes an object key should report a normal S3Error, rather than letting a
+    // raw URIError escape from the URL encoding:
+    await assertRejects(() => client.getObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    await assertRejects(() => client.statObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    await assertRejects(() => client.deleteObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    await assertRejects(() => client.putObject(loneSurrogate, "data"), S3Errors.InvalidObjectNameError);
+    await assertRejects(
+      () => client.copyObject({ sourceKey: "source.txt" }, loneSurrogate),
+      S3Errors.InvalidObjectNameError,
+    );
+    // These three return a Promise but validate synchronously, so they throw rather than reject:
+    assertThrows(() => client.getPresignedUrl("GET", loneSurrogate), S3Errors.InvalidObjectNameError);
+    assertThrows(() => client.presignedGetObject(loneSurrogate), S3Errors.InvalidObjectNameError);
+    assertThrows(() => client.presignedPostObject(loneSurrogate), S3Errors.InvalidObjectNameError);
   },
 });
 

@@ -59,6 +59,10 @@ export function isValidObjectName(objectName: string) {
 export function isValidPrefix(prefix: string) {
   if (typeof prefix !== "string") return false;
   if (prefix.length > 1024) return false;
+  // A lone surrogate cannot be represented in UTF-8, so such a key could never reach the server as
+  // written. Reject it here, rather than letting it be silently mangled into U+FFFD or throw a
+  // URIError from deep inside the URL encoding.
+  if (!prefix.isWellFormed()) return false;
   return true;
 }
 

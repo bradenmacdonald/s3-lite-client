@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert/equals";
 import { assertStringIncludes } from "@std/assert/string-includes";
+import { assertThrows } from "@std/assert/throws";
 import { bin2hex } from "./helpers.ts";
 import { _internalMethods as methods, presignPostV4, presignV4, signV4 } from "./signing.ts";
 
@@ -403,5 +404,21 @@ Deno.test({
     assertEquals(awsUriEncode("a.b-c_d~e"), "a.b-c_d~e");
     assertEquals(awsUriEncode("words with spaces"), "words%20with%20spaces");
     assertEquals(awsUriEncode("файл"), "%D1%84%D0%B0%D0%B9%D0%BB");
+    // Only these are unreserved; every other ASCII character must be percent-encoded, in uppercase hex:
+    assertEquals(awsUriEncode("-._~"), "-._~");
+    // ...which notably includes the five that encodeURIComponent() leaves alone:
+    assertEquals(awsUriEncode("!'()*"), "%21%27%28%29%2A");
+    assertEquals(awsUriEncode("a+b&c=d?e#f"), "a%2Bb%26c%3Dd%3Fe%23f");
+    assertEquals(awsUriEncode("%"), "%25");
+    assertEquals(awsUriEncode(""), "");
+    // Slashes are encoded unless they are part of an object key:
+    assertEquals(awsUriEncode("/a//b/", true), "/a//b/");
+    assertEquals(awsUriEncode("/a//b/", false), "%2Fa%2F%2Fb%2F");
+    // Multi-byte characters are encoded per UTF-8 byte, including outside the BMP:
+    assertEquals(awsUriEncode("ሴ"), "%E1%88%B4");
+    assertEquals(awsUriEncode("😀"), "%F0%9F%98%80");
+    // A lone surrogate cannot be represented in UTF-8. Object names should be validated by
+    // isValidObjectName() long before they reach the signer, so this is an internal/usage error:
+    assertThrows(() => awsUriEncode("\ud800"), URIError);
   },
 });
