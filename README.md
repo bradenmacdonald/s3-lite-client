@@ -7,7 +7,7 @@
 [![JSR Downloads](https://jsr.io/badges/@bradenmacdonald/s3-lite-client/total-downloads)](https://jsr.io/@bradenmacdonald/s3-lite-client)
 [![NPM Version](https://img.shields.io/npm/v/%40bradenmacdonald%2Fs3-lite-client)](https://www.npmjs.com/package/@bradenmacdonald/s3-lite-client)
 
-This is a lightweight S3 (object storage) client for JavaScript runtimes (Deno, Node 19+, Bun, browsers, etc.). It is
+This is a lightweight S3 (object storage) client for JavaScript runtimes (Deno, Node 22+, Bun, browsers, etc.). It is
 designed to offer all the key features you may need, without bloat. It should work with any JavaScript runtime that
 supports the `fetch` API, web streams API, and ES modules (ESM).
 
