@@ -9,7 +9,14 @@ import { parse as parseXML } from "./xml-parser.ts";
 /**
  * Base class for all errors raised by this S3 client.
  */
-export class S3Error extends Error {}
+export class S3Error extends Error {
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+    // Without this, every subclass would report its name as the unhelpful "Error".
+    // If the names have been mangled during minification, we'll just use `S3Error`.
+    this.name = new.target.name.endsWith("Error") ? new.target.name : "S3Error";
+  }
+}
 
 // Preserve API compatibility with the old name:
 /** @deprecated Use `S3Error` instead. */
