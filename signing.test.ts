@@ -1,6 +1,8 @@
 import { assertEquals } from "@std/assert/equals";
+import { assertRejects } from "@std/assert/rejects";
 import { assertStringIncludes } from "@std/assert/string-includes";
 import { assertThrows } from "@std/assert/throws";
+import * as errors from "./errors.ts";
 import { bin2hex } from "./helpers.ts";
 import { _internalMethods as methods, presignPostV4, presignV4, signV4 } from "./signing.ts";
 
@@ -169,14 +171,66 @@ Deno.test({
           "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
           "X-Amz-Credential": "AKIA_TEST_ACCESS_KEY/20211026/ca-central-1/s3/aws4_request",
           "X-Amz-Date": "20211026T180728Z",
-          "X-Amz-Signature": "f93baf6c6f2973cd7a96912345a968420e72df398fc95526f44c3d936abba6e6",
+          "X-Amz-Signature": "0b503ca69a775bb106234ff493afc4d1b20dc7e9a9130b7ffedfce7e665c5994",
           "custom-field1": "cf1-value",
           key: "foo/bar/tribble",
           policy:
-            "eyJleHBpcmF0aW9uIjoiMjAyMS0xMC0yNlQxOTowNzoyOC40OTJaIiwiY29uZGl0aW9ucyI6W3siYnVja2V0IjoiYnVja2V0In0seyJrZXkiOiJmb28vYmFyL3RyaWJibGUifSx7IlgtQW16LUFsZ29yaXRobSI6IkFXUzQtSE1BQy1TSEEyNTYifSx7IlgtQW16LUNyZWRlbnRpYWwiOiJBS0lBX1RFU1RfQUNDRVNTX0tFWS8yMDIxMTAyNi9jYS1jZW50cmFsLTEvczMvYXdzNF9yZXF1ZXN0In0seyJYLUFtei1EYXRlIjoiMjAyMTEwMjZUMTgwNzI4WiJ9LFsic3RhcnRzLXdpdGgiLCIka2V5IiwiZm9vL2JhciJdLHsiY3VzdG9tLWZpZWxkMSI6ImNmMS12YWx1ZSJ9XX0=",
+            "eyJleHBpcmF0aW9uIjoiMjAyMS0xMC0yNlQxOTowNzoyOC40OTJaIiwiY29uZGl0aW9ucyI6W3siYnVja2V0IjoiYnVja2V0In0seyJrZXkiOiJmb28vYmFyL3RyaWJibGUifSx7IlgtQW16LUFsZ29yaXRobSI6IkFXUzQtSE1BQy1TSEEyNTYifSx7IlgtQW16LUNyZWRlbnRpYWwiOiJBS0lBX1RFU1RfQUNDRVNTX0tFWS8yMDIxMTAyNi9jYS1jZW50cmFsLTEvczMvYXdzNF9yZXF1ZXN0In0seyJYLUFtei1EYXRlIjoiMjAyMTEwMjZUMTgwNzI4WiJ9LHsiY3VzdG9tLWZpZWxkMSI6ImNmMS12YWx1ZSJ9LFsic3RhcnRzLXdpdGgiLCIka2V5IiwiZm9vL2JhciJdXX0=",
         },
       },
     );
+  },
+});
+
+const presignPostBase = {
+  protocol: "https:" as const,
+  objectKey: "object/key",
+  host: "localhost:9000",
+  bucket: "bucket",
+  accessKey: "AKIA_TEST_ACCESS_KEY",
+  secretKey: "ThisIsTheSecret",
+  region: "ca-central-1",
+  date: new Date("2021-10-26T18:07:28.492Z"),
+  expirySeconds: 60 * 60,
+};
+
+Deno.test({
+  name: "presignPostV4 - every POSTed field has a matching policy condition",
+  fn: async () => {
+    // S3 rejects the upload if a POSTed field is missing from the policy, or if the policy requires a
+    // different value than the one we POST. The only two fields exempt from this are `policy` itself
+    // and `X-Amz-Signature`.
+    const { fields } = await presignPostV4({
+      ...presignPostBase,
+      fields: { "Content-Type": "image/png", "x-amz-meta-note": "hello" },
+      conditions: [["starts-with", "$key", "object/"]],
+    });
+
+    const policyJson = new TextDecoder().decode(Uint8Array.from(atob(fields.policy), (c) => c.charCodeAt(0)));
+    const { conditions } = JSON.parse(policyJson) as { conditions: unknown[] };
+    for (const [name, value] of Object.entries(fields)) {
+      if (name === "policy" || name === "X-Amz-Signature") continue;
+      assertEquals(
+        conditions.filter((c) => typeof c === "object" && c !== null && name in c),
+        [{ [name]: value }],
+        `Expected exactly one policy condition matching the POSTed field ${name}=${value}`,
+      );
+    }
+  },
+});
+
+Deno.test({
+  name: "presignPostV4 - rejects fields that it generates itself",
+  fn: async () => {
+    // Allowing these to be overridden would produce a policy that contradicts the fields we POST,
+    // which S3 would reject with an unhelpful error at upload time.
+    for (const name of ["key", "X-Amz-Algorithm", "X-Amz-Credential", "X-Amz-Date"]) {
+      const error = await assertRejects(
+        () => presignPostV4({ ...presignPostBase, fields: { [name]: "anything" } }),
+        errors.InvalidArgumentError,
+      );
+      assertStringIncludes(error.message, `"${name}"`);
+    }
   },
 });
 
