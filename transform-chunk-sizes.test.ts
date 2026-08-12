@@ -153,3 +153,30 @@ Deno.test({
     );
   },
 });
+
+Deno.test({
+  name: "TransformChunkSizes - big chunk size, so the internal buffer has to grow",
+  fn: async () => {
+    // Use an output chunk size much bigger than the amount of data we'll actually get, to check
+    // that the transform grows its internal buffer as needed rather than allocating it up front.
+    const outChunkSize = 40 * 1024 * 1024;
+    const inChunkSize = 100_000;
+    const inChunkCount = 5;
+    const inputStream = new NumberSource(0, inChunkCount, inChunkSize);
+    const outputStream = new DataSink();
+    inputStream.pipeThrough(new TransformChunkSizes(outChunkSize)).pipeTo(outputStream);
+    await outputStream.done;
+
+    // All of the data fits into one (final, partial) chunk:
+    assertEquals(outputStream.outputData.length, 1);
+    const output = outputStream.outputData[0];
+    assertEquals(output.length, inChunkSize * inChunkCount);
+    // And the data is intact: the Nth input chunk was inChunkSize bytes, all set to N.
+    for (let i = 0; i < inChunkCount; i++) {
+      assertEquals(
+        output.subarray(i * inChunkSize, (i + 1) * inChunkSize),
+        new Uint8Array(inChunkSize).fill(i),
+      );
+    }
+  },
+});

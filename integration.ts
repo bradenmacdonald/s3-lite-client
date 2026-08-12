@@ -73,6 +73,28 @@ Deno.test({
 });
 
 Deno.test({
+  name: "putObject() can upload an empty file",
+  fn: async () => {
+    // The etag of an empty object is the MD5 of no bytes at all:
+    const emptyEtag = "d41d8cd98f00b204e9800998ecf8427e";
+
+    const fromString = await client.putObject("test-empty-string.txt", "");
+    assertEquals(fromString.etag, emptyEtag);
+    assertEquals((await client.statObject("test-empty-string.txt")).size, 0);
+    assertEquals(await (await client.getObject("test-empty-string.txt")).text(), "");
+
+    const fromBytes = await client.putObject("test-empty-bytes.dat", new Uint8Array(0));
+    assertEquals(fromBytes.etag, emptyEtag);
+    assertEquals((await client.statObject("test-empty-bytes.dat")).size, 0);
+
+    // Uploading an empty stream works too:
+    const fromStream = await client.putObject("test-empty-stream.dat", new Blob([]).stream());
+    assertEquals(fromStream.etag, emptyEtag);
+    assertEquals((await client.statObject("test-empty-stream.dat")).size, 0);
+  },
+});
+
+Deno.test({
   name: "putObject() can set metadata",
   fn: async () => {
     const key = "test-with-metadata.txt";

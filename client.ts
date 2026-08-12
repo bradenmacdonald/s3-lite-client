@@ -10,7 +10,7 @@ import {
   sha256digestHex,
   type Uint8Array_,
 } from "./helpers.ts";
-import { ObjectUploader } from "./object-uploader.ts";
+import { ObjectUploader, uploadSingleRequest } from "./object-uploader.ts";
 import { presignPostV4, presignV4, signV4 } from "./signing.ts";
 import { childText, parse as parseXML } from "./xml-parser.ts";
 
@@ -158,6 +158,11 @@ const minimumPartSize = 5 * 1024 * 1024;
 const maximumPartSize = 5 * 1024 * 1024 * 1024;
 /** The maximum allowed object size for multi-part uploads. https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html */
 const maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
+/**
+ * The part size we use for multi-part uploads unless the object is so big that it would need more
+ * than the 10,000 parts that S3 allows. With 10,000 parts, this supports objects up to 640GB.
+ */
+const defaultPartSize = 64 * 1024 * 1024;
 
 /**
  * Interface for presigned POST policy conditions
@@ -754,26 +759,25 @@ export class Client {
       size?: number;
       bucketName?: string;
       /**
-       * For large uploads, split them into parts of this size.
-       * Default: 64MB if object size is known, 500MB if total object size is unknown.
-       * This is a minimum; larger part sizes may be required for large uploads or if the total size is unknown.
+       * For large uploads, split them into parts of this size. Default: 64MB.
+       * This is also roughly how much data we buffer in memory per part that is being uploaded.
+       * Since S3 allows at most 10,000 parts, the default supports objects up to 640GB; to upload
+       * something larger, or to stream something larger without specifying `size`, set a bigger
+       * part size (up to 5GB).
        */
       partSize?: number;
     },
   ): Promise<UploadedObjectInfo> {
     const bucketName = this.checkNames(objectName, options);
 
-    // Prepare a readable stream for the upload:
+    // Prepare the data for the upload:
     let size: number | undefined;
-    let stream: ReadableStream<Uint8Array>;
-    if (streamOrData instanceof ReadableStream) {
-      stream = streamOrData;
-    } else {
+    let bytes: Uint8Array_ | undefined;
+    if (!(streamOrData instanceof ReadableStream)) {
       // If we've been given a string, convert to binary using UTF-8.
-      const bytes: Uint8Array_ = typeof streamOrData === "string" ? encoder.encode(streamOrData) : streamOrData;
+      bytes = typeof streamOrData === "string" ? encoder.encode(streamOrData) : streamOrData;
       if (!(bytes instanceof Uint8Array)) throw new errors.InvalidArgumentError(`Invalid stream/data type provided.`);
       size = bytes.byteLength;
-      stream = new Blob([bytes]).stream();
     }
 
     // Validate the size parameter
@@ -800,7 +804,17 @@ export class Client {
       throw new errors.InvalidArgumentError(`Part size should be less than 5GB`);
     }
 
-    // s3 requires that all non-end chunks be at least `this.partSize`,
+    const metadata = options?.metadata ?? {};
+
+    if (bytes !== undefined && bytes.byteLength < partSize) {
+      // We already have all of the data in memory and it fits into a single request, so upload it
+      // directly. This avoids converting it to a stream and copying it through the chunker.
+      return uploadSingleRequest({ client: this, bucketName, objectName, metadata, payload: bytes });
+    }
+
+    // Prepare for streaming upload.
+    const stream = bytes === undefined ? streamOrData as ReadableStream<Uint8Array> : new Blob([bytes]).stream();
+    // s3 requires that all non-end chunks be at least `partSize`,
     // so we chunk the stream until we hit either that size or the end before
     // we flush it to s3.
     const chunker = new TransformChunkSizes(partSize);
@@ -812,7 +826,7 @@ export class Client {
       bucketName,
       objectName,
       partSize,
-      metadata: options?.metadata ?? {},
+      metadata,
     });
     // stream => chunker => uploader
     await stream.pipeThrough(chunker).pipeTo(uploader);
@@ -831,15 +845,16 @@ export class Client {
    */
   protected calculatePartSize(size: number | undefined): number {
     if (size === undefined) {
-      // If we don't know the total size (e.g. we're streaming data), assume it's
-      // the largest allowed object size, so we can guarantee the upload works
-      // regardless of the total size.
-      size = maxObjectSize;
+      // If we don't know the total size (e.g. we're streaming data), use the default part size.
+      // We don't assume the largest allowed object size (5TB), because the part size is also how
+      // much data we have to buffer in memory before we can start uploading each part. This
+      // supports streams of up to 640GB; bigger ones need an explicit "size" or "partSize".
+      return defaultPartSize;
     }
     if (size > maxObjectSize) {
       throw new TypeError(`size should not be more than ${maxObjectSize}`);
     }
-    let partSize = 64 * 1024 * 1024; // Start with 64MB
+    let partSize = defaultPartSize; // Start with 64MB
     while (true) {
       // If partSize is big enough to accomodate the object size, then use it.
       if ((partSize * 10_000) > size) {
