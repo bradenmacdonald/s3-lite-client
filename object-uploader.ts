@@ -96,11 +96,7 @@ export class ObjectUploader extends WritableStream<Uint8Array_> {
             payload: chunk,
           }).then((response) => {
             // In order to aggregate the parts together, we need to collect the etags.
-            let etag = response.headers.get("etag") ?? "";
-            if (etag) {
-              etag = etag.replace(/^"/, "").replace(/"$/, "");
-            }
-            etags.push({ part: partNumber, etag });
+            etags.push({ part: partNumber, etag: sanitizeETag(response.headers.get("etag") ?? undefined) });
             return response;
           });
           // We can't `await partPromise` now, because that will cause the uploads to
