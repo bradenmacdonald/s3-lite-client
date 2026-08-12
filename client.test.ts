@@ -365,6 +365,38 @@ Deno.test({
 });
 
 Deno.test({
+  name: "when both the bucket name and the object name are invalid, the bucket name is reported",
+  fn: async () => {
+    // Every operation on a single object validates both names. They're checked in a consistent order
+    // so that the error doesn't depend on which method you happened to call.
+    const client = new Client({ endPoint: "https://s3.example.com", region: "us-east-1", bucket: "test-bucket" });
+    const bad = { bucketName: "no" }; // too short to be a valid bucket name
+    const badKey = ""; // empty keys are not valid either
+
+    await assertRejects(() => client.getObject(badKey, bad), S3Errors.InvalidBucketNameError);
+    await assertRejects(() => client.statObject(badKey, bad), S3Errors.InvalidBucketNameError);
+    await assertRejects(() => client.deleteObject(badKey, bad), S3Errors.InvalidBucketNameError);
+    await assertRejects(() => client.putObject(badKey, "data", bad), S3Errors.InvalidBucketNameError);
+    await assertRejects(
+      () => client.copyObject({ sourceKey: "source.txt" }, badKey, bad),
+      S3Errors.InvalidBucketNameError,
+    );
+    await assertRejects(() => client.presignedPostObject(badKey, bad), S3Errors.InvalidBucketNameError);
+    // getPresignedUrl checks for credentials before either name, so give it some:
+    const signed = new Client({
+      endPoint: "https://s3.example.com",
+      region: "us-east-1",
+      bucket: "test-bucket",
+      accessKey: "k",
+      secretKey: "s",
+    });
+    await assertRejects(() => signed.getPresignedUrl("GET", badKey, bad), S3Errors.InvalidBucketNameError);
+    // ...and with a valid bucket, it's still the object name that's reported:
+    await assertRejects(() => signed.getObject(badKey), S3Errors.InvalidObjectNameError);
+  },
+});
+
+Deno.test({
   name: "makeRequest() releases the response body when returnBody is not set",
   fn: async () => {
     const client = new Client({ endPoint: "https://s3.example.com", region: "auto", bucket: "test-bucket" });

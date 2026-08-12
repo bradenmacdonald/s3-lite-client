@@ -271,6 +271,19 @@ export class Client {
   }
 
   /**
+   * Internal helper method for the operations that act on a single object: validate the object name
+   * and return the bucket name to use. The bucket name is checked first, since a bad one usually
+   * means the client itself is misconfigured.
+   */
+  protected checkNames(objectName: string, options: undefined | { bucketName?: string }): string {
+    const bucketName = this.getBucketName(options);
+    if (!isValidObjectName(objectName)) {
+      throw new errors.InvalidObjectNameError(objectName);
+    }
+    return bucketName;
+  }
+
+  /**
    * Common code used for both "normal" requests and presigned URL requests
    */
   private buildRequestOptions(options: {
@@ -405,10 +418,7 @@ export class Client {
     objectName: string,
     options: { bucketName?: string; versionId?: string; governanceBypass?: boolean } = {},
   ) {
-    const bucketName = this.getBucketName(options);
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
+    const bucketName = this.checkNames(objectName, options);
 
     const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
     const headers = new Headers();
@@ -480,10 +490,7 @@ export class Client {
       responseParams?: ResponseOverrideParams;
     },
   ): Promise<Response> {
-    const bucketName = this.getBucketName(options);
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
+    const bucketName = this.checkNames(objectName, options);
 
     const headers = new Headers(Object.entries(options.metadata ?? {}));
     let statusCode = 200; // Expected status code
@@ -543,12 +550,10 @@ export class Client {
     if (!this.accessKey) {
       throw new errors.AccessKeyRequiredError();
     }
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
+    const bucketName = this.checkNames(objectName, options);
     const { headers, path } = this.buildRequestOptions({
       objectName,
-      bucketName: options.bucketName,
+      bucketName,
       query: options.parameters,
       headers: new Headers(options.extraHeaders),
     });
@@ -766,10 +771,7 @@ export class Client {
       partSize?: number;
     },
   ): Promise<UploadedObjectInfo> {
-    const bucketName = this.getBucketName(options);
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
+    const bucketName = this.checkNames(objectName, options);
 
     // Prepare a readable stream for the upload:
     let size: number | undefined;
@@ -874,10 +876,7 @@ export class Client {
       headers?: Record<string, string>;
     },
   ): Promise<ObjectStatus> {
-    const bucketName = this.getBucketName(options);
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
+    const bucketName = this.checkNames(objectName, options);
     const query: Record<string, string> = {};
     if (options?.versionId) {
       query.versionId = options.versionId;
@@ -928,11 +927,8 @@ export class Client {
       metadata?: ObjectMetadata;
     },
   ): Promise<CopiedObjectInfo> {
-    const bucketName = this.getBucketName(options);
+    const bucketName = this.checkNames(objectName, options);
     const sourceBucketName = source.sourceBucketName ?? bucketName;
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
 
     // The "x-amz-copy-source" header is like "bucket/objectkey" with an optional version ID.
     // e.g. "awsexamplebucket/reports/january.pdf?versionId=QUpfdndhfd8438MNFDN93jdnJFkdmqnh893"
@@ -1042,16 +1038,7 @@ export class Client {
       fields?: Record<string, string>;
     } = {},
   ): Promise<PresignedPostResult> {
-    if (!isValidObjectName(objectName)) {
-      throw new errors.InvalidObjectNameError(objectName);
-    }
-
-    const bucketName = this.getBucketName(options);
-    if (!bucketName) {
-      throw new Error(
-        "Bucket name is required for presignedPost, but none was provided either to this method nor to the client constructor",
-      );
-    }
+    const bucketName = this.checkNames(objectName, options);
 
     // Build request options
     const requestDate = options.requestDate || new Date();
