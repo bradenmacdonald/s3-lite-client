@@ -334,3 +334,37 @@ Deno.test({
     assert(conditionalUrl.searchParams.get("X-Amz-Signature") !== unconditionalUrl.searchParams.get("X-Amz-Signature"));
   },
 });
+
+Deno.test({
+  name: "makeRequest() releases the response body when returnBody is not set",
+  fn: async () => {
+    const client = new Client({ endPoint: "https://s3.example.com", region: "auto", bucket: "test-bucket" });
+
+    // A multi-chunk response body that tells us how it was disposed of:
+    let cancelled = false;
+    let chunksPulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        // Enough chunks that reading only the first one would leave the body unfinished:
+        if (++chunksPulled > 3) return controller.close();
+        controller.enqueue(new TextEncoder().encode("chunk"));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (() => Promise.resolve(new Response(body, { status: 200 }))) as typeof globalThis.fetch;
+    let response: Response;
+    try {
+      response = await client.makeRequest({ method: "GET", objectName: "file.txt" });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    // The body must be fully disposed of, not just read one chunk deep and abandoned:
+    assert(cancelled, "response body should have been cancelled");
+    assert(response.bodyUsed, "response body should be marked as used");
+  },
+});

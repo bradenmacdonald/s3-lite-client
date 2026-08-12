@@ -318,10 +318,10 @@ export class Client {
     /** The request body */
     payload?: Uint8Array_ | string;
     /**
-     * returnBody: We have to read the request body to avoid leaking resources.
-     * So by default this method will read and ignore the body. If you actually
-     * need it, set returnBody: true and this function won't touch it so that
-     * the caller can read it.
+     * returnBody: We have to consume the response body to avoid leaking resources.
+     * So by default this method will discard the body. If you actually need it,
+     * set returnBody: true and this function won't touch it so that the caller
+     * can read it.
      */
     returnBody?: boolean;
   }): Promise<Response> {
@@ -390,8 +390,8 @@ export class Client {
       );
     }
     if (!options.returnBody) {
-      // Just read the body and ignore its contents, to avoid leaking resources.
-      await response.body?.getReader().read();
+      // Discard the body, to avoid leaking resources.
+      await response.body?.cancel();
     }
     return response;
   }
