@@ -1,5 +1,14 @@
 import { assertEquals } from "@std/assert/equals";
-import { bin2hex, isValidBucketName, isValidPort, makeDateLong, makeDateShort, sha256digestHex } from "./helpers.ts";
+import {
+  bin2hex,
+  isValidBucketName,
+  isValidObjectName,
+  isValidPort,
+  isValidPrefix,
+  makeDateLong,
+  makeDateShort,
+  sha256digestHex,
+} from "./helpers.ts";
 
 Deno.test({
   name: "isValidPort",
@@ -55,6 +64,41 @@ Deno.test({
         fn: () => assertEquals(isValidBucketName(validName), true),
       });
     }
+  },
+});
+
+Deno.test({
+  name: "isValidObjectName",
+  fn: () => {
+    // ✅ Valid:
+    assertEquals(isValidObjectName("file.txt"), true);
+    assertEquals(isValidObjectName("dir/sub dir/file (final)+v2.txt"), true);
+    assertEquals(isValidObjectName("x".repeat(1024)), true);
+    assertEquals(isValidObjectName("файл"), true);
+    assertEquals(isValidObjectName("emoji-😀.txt"), true);
+    // ❌ Invalid:
+    assertEquals(isValidObjectName(""), false); // empty
+    assertEquals(isValidObjectName("x".repeat(1025)), false); // too long
+    // @ts-expect-error isValidObjectName normally accepts a string
+    assertEquals(isValidObjectName(undefined), false);
+    // A lone surrogate cannot be represented in UTF-8, so such a key can never reach the server as
+    // written. It must be rejected here rather than silently mangled into U+FFFD:
+    assertEquals(isValidObjectName("\ud800"), false); // lone high surrogate
+    assertEquals(isValidObjectName("\udfff"), false); // lone low surrogate
+    assertEquals(isValidObjectName("dir/lone\ud800surrogate.txt"), false);
+  },
+});
+
+Deno.test({
+  name: "isValidPrefix",
+  fn: () => {
+    // ✅ Valid:
+    assertEquals(isValidPrefix(""), true); // unlike an object name, a prefix may be empty
+    assertEquals(isValidPrefix("dir/"), true);
+    assertEquals(isValidPrefix("emoji-😀"), true);
+    // ❌ Invalid:
+    assertEquals(isValidPrefix("x".repeat(1025)), false); // too long
+    assertEquals(isValidPrefix("dir/\ud800"), false); // lone surrogate
   },
 });
 
