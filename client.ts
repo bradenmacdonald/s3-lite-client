@@ -524,7 +524,7 @@ export class Client {
    * @param objectName The object name, e.g. "path/to/file.txt"
    * @param options Detailed options, such as expiry time for the pre-signed URL. Use expirySeconds to specify the expiry time; default is seven days.
    */
-  getPresignedUrl(
+  async getPresignedUrl(
     method: "GET" | "PUT" | "HEAD" | "DELETE",
     objectName: string,
     options: {
@@ -555,7 +555,7 @@ export class Client {
     const requestDate = options.requestDate ?? new Date();
     const expirySeconds = options.expirySeconds ?? 24 * 60 * 60 * 7; // default expiration is 7 days in seconds.
 
-    return presignV4({
+    return await presignV4({
       protocol: this.protocol,
       headers,
       method,
@@ -1030,7 +1030,7 @@ export class Client {
    * @param options - Additional options
    * @returns An object with url and fields that can be used to construct a form for direct uploads
    */
-  presignedPostObject(
+  async presignedPostObject(
     objectName: string,
     options: {
       /**
@@ -1071,7 +1071,7 @@ export class Client {
     const requestDate = options.requestDate || new Date();
     const expirySeconds = options.expirySeconds ?? 3600; // Default 1 hour
 
-    return presignPostV4({
+    return await presignPostV4({
       protocol: this.protocol,
       host: this.host,
       bucket: bucketName,
