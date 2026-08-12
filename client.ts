@@ -190,7 +190,6 @@ export class Client {
   readonly sessionToken?: string;
   readonly defaultBucket: string | undefined;
   readonly region: string;
-  readonly userAgent = "s3-lite-client";
   /** Use path-style requests, e.g. https://endpoint/bucket/object-key instead of https://bucket/object-key */
   readonly pathStyle: boolean;
   readonly pathPrefix?: string;
