@@ -12,6 +12,7 @@ export {
   type ObjectStatus as S3ObjectStatus,
   type PolicyCondition as S3PolicyCondition,
   type PresignedPostResult as S3PresignedPostResult,
+  ReadClient as S3ReadClient,
   type ResponseOverrideParams as S3ResponseOverrideParams,
   type S3Object,
   type UploadedObjectInfo as S3UploadedObjectInfo,

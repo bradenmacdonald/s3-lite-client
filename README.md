@@ -14,6 +14,8 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 **Key features**:
 
 - Has **no dependencies** and minifies to about 21kB (< 8 kB gzipped).
+  - If you need only read functionality (no upload nor presigned URLs), you can import `S3ReadClient` which tree-shakes
+    even smaller (< 5 kB gzipped) than the full `S3Client`.
   - For comparison, the official `@aws-sdk/client-s3` has
     [56 dependencies and weighs 399 kB (94 kB gzipped)](https://bundlephobia.com/package/@aws-sdk/client-s3@3.758.0) at
     the time of writing.
@@ -78,9 +80,9 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 List data files from a public data set on Amazon S3:
 
 ```typescript
-import { S3Client } from "@bradenmacdonald/s3-lite-client";
+import { S3ReadClient } from "@bradenmacdonald/s3-lite-client";
 
-const s3client = new S3Client({
+const s3client = new S3ReadClient({
   endPoint: "https://s3.us-east-1.amazonaws.com",
   region: "us-east-1",
   bucket: "openalex",

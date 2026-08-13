@@ -184,14 +184,20 @@ export interface PresignedPostResult {
 }
 
 /**
- * Client for connecting to S3-compatible object storage services.
+ * Client for reading from S3-compatible object storage services.
+ *
+ * This supports every read-only operation: listing, downloading, and inspecting objects. Use
+ * {@link Client} instead if you also need to upload, copy, or delete objects, or to create
+ * pre-signed URLs. Bundlers can tree-shake all of that away when you only import this class,
+ * which makes this roughly a third smaller.
  */
-export class Client {
+export class ReadClient {
   readonly host: string;
   readonly port: number;
   readonly protocol: "https:" | "http:";
   readonly accessKey?: string;
   readonly #secretKey: string;
+
   readonly sessionToken?: string;
   readonly defaultBucket: string | undefined;
   readonly region: string;
@@ -266,6 +272,16 @@ export class Client {
     }
   }
 
+  /**
+   * The secret key, for subclasses that need to sign something themselves.
+   *
+   * The key itself is held in a private `#` field so that it never appears when an instance is
+   * logged or serialized; this accessor lives on the prototype, so it doesn't reintroduce that.
+   */
+  protected get secretKey(): string {
+    return this.#secretKey;
+  }
+
   /** Internal helper method to figure out which bucket name to use for a request */
   protected getBucketName(options: undefined | { bucketName?: string }): string {
     const bucketName = options?.bucketName ?? this.defaultBucket;
@@ -291,7 +307,7 @@ export class Client {
   /**
    * Common code used for both "normal" requests and presigned URL requests
    */
-  private buildRequestOptions(options: {
+  protected buildRequestOptions(options: {
     objectName: string;
     bucketName?: string;
     headers?: Headers;
@@ -415,33 +431,6 @@ export class Client {
   }
 
   /**
-   * Delete a single object.
-   *
-   * You can also pass a versionId to delete a specific version of an object.
-   */
-  async deleteObject(
-    objectName: string,
-    options: { bucketName?: string; versionId?: string; governanceBypass?: boolean } = {},
-  ) {
-    const bucketName = this.checkNames(objectName, options);
-
-    const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
-    const headers = new Headers();
-    if (options.governanceBypass) {
-      headers.set("X-Amz-Bypass-Governance-Retention", "true");
-    }
-
-    await this.makeRequest({
-      method: "DELETE",
-      bucketName,
-      objectName,
-      headers,
-      query,
-      statusCode: 204,
-    });
-  }
-
-  /**
    * Check if an object with the specified key exists.
    */
   public async exists(
@@ -518,78 +507,6 @@ export class Client {
       statusCode,
       returnBody: true,
     });
-  }
-
-  /**
-   * Low-level method to generate a pre-signed URL.
-   * @param method The HTTP method to use for the request
-   * @param objectName The object name, e.g. "path/to/file.txt"
-   * @param options Detailed options, such as expiry time for the pre-signed URL. Use expirySeconds to specify the expiry time; default is seven days.
-   */
-  async getPresignedUrl(
-    method: "GET" | "PUT" | "HEAD" | "DELETE",
-    objectName: string,
-    options: {
-      bucketName?: string;
-      parameters?: Record<string, string>;
-      expirySeconds?: number;
-      requestDate?: Date;
-      /**
-       * Additional headers to include in the signature (advanced usage), e.g. `{ "If-None-Match": "*" }` to make a
-       * conditional write that cannot overwrite an existing object. Whoever uses the resulting pre-signed URL must
-       * send these exact headers along with the request, or it will be rejected.
-       */
-      extraHeaders?: Record<string, string>;
-    } = {},
-  ): Promise<string> {
-    if (!this.accessKey) {
-      throw new errors.AccessKeyRequiredError();
-    }
-    const bucketName = this.checkNames(objectName, options);
-    const { headers, path } = this.buildRequestOptions({
-      objectName,
-      bucketName,
-      query: options.parameters,
-      headers: new Headers(options.extraHeaders),
-    });
-    const requestDate = options.requestDate ?? new Date();
-    const expirySeconds = options.expirySeconds ?? 24 * 60 * 60 * 7; // default expiration is 7 days in seconds.
-
-    return await presignV4({
-      protocol: this.protocol,
-      headers,
-      method,
-      path,
-      accessKey: this.accessKey,
-      secretKey: this.#secretKey,
-      sessionToken: this.sessionToken,
-      region: this.region,
-      date: requestDate,
-      expirySeconds,
-    });
-  }
-
-  /**
-   * Generate a pre-signed GET request URL.
-   *
-   * Use options.expirySeconds to override the expiration time (default is 7 days)
-   */
-  presignedGetObject(
-    objectName: string,
-    options: {
-      bucketName?: string;
-      versionId?: string;
-      responseParams?: ResponseOverrideParams;
-      expirySeconds?: number;
-      requestDate?: Date;
-    } = {},
-  ): Promise<string> {
-    const { versionId, responseParams, ...otherOptions } = options;
-    const parameters: Record<string, string> = {
-      ...responseParams,
-      ...(versionId ? { versionId } : {}),
-    };
-    return this.getPresignedUrl("GET", objectName, { parameters, ...otherOptions });
   }
 
   /**
@@ -749,6 +666,82 @@ export class Client {
   }
 
   /**
+   * Get detailed information about an object.
+   */
+  public async statObject(
+    objectName: string,
+    options?: {
+      bucketName?: string;
+      versionId?: string;
+      /**
+       * Additional headers to include in the request
+       */
+      headers?: Record<string, string>;
+    },
+  ): Promise<ObjectStatus> {
+    const bucketName = this.checkNames(objectName, options);
+    const query: Record<string, string> = {};
+    if (options?.versionId) {
+      query.versionId = options.versionId;
+    }
+
+    const response = await this.makeRequest({
+      method: "HEAD",
+      bucketName,
+      objectName,
+      query,
+      // Add custom headers if provided
+      headers: new Headers(options?.headers),
+    });
+
+    const metadata: ObjectMetadata = {};
+    for (const header of metadataKeys) {
+      if (response.headers.has(header)) {
+        metadata[header] = response.headers.get(header) as string;
+      }
+    }
+    // Also add in custom metadata
+    response.headers.forEach((_value, key) => {
+      if (key.startsWith("x-amz-meta-")) {
+        metadata[key as `x-amz-meta-${string}`] = response.headers.get(key) as string;
+      }
+    });
+
+    return {
+      type: "Object",
+      key: objectName,
+      size: parseInt(response.headers.get("content-length") ?? "", 10),
+      metadata,
+      lastModified: new Date(response.headers.get("Last-Modified") ?? "error: missing last modified"),
+      versionId: response.headers.get("x-amz-version-id") || null,
+      etag: sanitizeETag(response.headers.get("ETag") ?? ""),
+    };
+  }
+
+  /** Check if a bucket exists */
+  public async bucketExists(bucketName: string): Promise<boolean> {
+    try {
+      const objects = this.listObjects({ bucketName });
+      // We don't need to fully list the objects, just check if we can start listing
+      await objects.next();
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof errors.ServerError && err.statusCode === 404) {
+        return false;
+      }
+      throw err;
+    }
+  }
+}
+
+/**
+ * Client for connecting to S3-compatible object storage services.
+ *
+ * This extends {@link ReadClient} with everything that modifies a bucket - uploading, copying and
+ * deleting objects, creating and removing buckets - plus pre-signed URL generation.
+ */
+export class Client extends ReadClient {
+  /**
    * Upload an object
    */
   async putObject(
@@ -866,59 +859,6 @@ export class Client {
   }
 
   /**
-   * Get detailed information about an object.
-   */
-  public async statObject(
-    objectName: string,
-    options?: {
-      bucketName?: string;
-      versionId?: string;
-      /**
-       * Additional headers to include in the request
-       */
-      headers?: Record<string, string>;
-    },
-  ): Promise<ObjectStatus> {
-    const bucketName = this.checkNames(objectName, options);
-    const query: Record<string, string> = {};
-    if (options?.versionId) {
-      query.versionId = options.versionId;
-    }
-
-    const response = await this.makeRequest({
-      method: "HEAD",
-      bucketName,
-      objectName,
-      query,
-      // Add custom headers if provided
-      headers: new Headers(options?.headers),
-    });
-
-    const metadata: ObjectMetadata = {};
-    for (const header of metadataKeys) {
-      if (response.headers.has(header)) {
-        metadata[header] = response.headers.get(header) as string;
-      }
-    }
-    // Also add in custom metadata
-    response.headers.forEach((_value, key) => {
-      if (key.startsWith("x-amz-meta-")) {
-        metadata[key as `x-amz-meta-${string}`] = response.headers.get(key) as string;
-      }
-    });
-
-    return {
-      type: "Object",
-      key: objectName,
-      size: parseInt(response.headers.get("content-length") ?? "", 10),
-      metadata,
-      lastModified: new Date(response.headers.get("Last-Modified") ?? "error: missing last modified"),
-      versionId: response.headers.get("x-amz-version-id") || null,
-      etag: sanitizeETag(response.headers.get("ETag") ?? ""),
-    };
-  }
-
-  /**
    * Copy an object into this bucket
    */
   public async copyObject(
@@ -969,19 +909,31 @@ export class Client {
     };
   }
 
-  /** Check if a bucket exists */
-  public async bucketExists(bucketName: string): Promise<boolean> {
-    try {
-      const objects = this.listObjects({ bucketName });
-      // We don't need to fully list the objects, just check if we can start listing
-      await objects.next();
-      return true;
-    } catch (err: unknown) {
-      if (err instanceof errors.ServerError && err.statusCode === 404) {
-        return false;
-      }
-      throw err;
+  /**
+   * Delete a single object.
+   *
+   * You can also pass a versionId to delete a specific version of an object.
+   */
+  async deleteObject(
+    objectName: string,
+    options: { bucketName?: string; versionId?: string; governanceBypass?: boolean } = {},
+  ) {
+    const bucketName = this.checkNames(objectName, options);
+
+    const query: Record<string, string> = options.versionId ? { versionId: options.versionId } : {};
+    const headers = new Headers();
+    if (options.governanceBypass) {
+      headers.set("X-Amz-Bypass-Governance-Retention", "true");
     }
+
+    await this.makeRequest({
+      method: "DELETE",
+      bucketName,
+      objectName,
+      headers,
+      query,
+      statusCode: 204,
+    });
   }
 
   /** Create a new bucket */
@@ -1002,6 +954,78 @@ export class Client {
       objectName: "",
       statusCode: 204,
     });
+  }
+
+  /**
+   * Low-level method to generate a pre-signed URL.
+   * @param method The HTTP method to use for the request
+   * @param objectName The object name, e.g. "path/to/file.txt"
+   * @param options Detailed options, such as expiry time for the pre-signed URL. Use expirySeconds to specify the expiry time; default is seven days.
+   */
+  async getPresignedUrl(
+    method: "GET" | "PUT" | "HEAD" | "DELETE",
+    objectName: string,
+    options: {
+      bucketName?: string;
+      parameters?: Record<string, string>;
+      expirySeconds?: number;
+      requestDate?: Date;
+      /**
+       * Additional headers to include in the signature (advanced usage), e.g. `{ "If-None-Match": "*" }` to make a
+       * conditional write that cannot overwrite an existing object. Whoever uses the resulting pre-signed URL must
+       * send these exact headers along with the request, or it will be rejected.
+       */
+      extraHeaders?: Record<string, string>;
+    } = {},
+  ): Promise<string> {
+    if (!this.accessKey) {
+      throw new errors.AccessKeyRequiredError();
+    }
+    const bucketName = this.checkNames(objectName, options);
+    const { headers, path } = this.buildRequestOptions({
+      objectName,
+      bucketName,
+      query: options.parameters,
+      headers: new Headers(options.extraHeaders),
+    });
+    const requestDate = options.requestDate ?? new Date();
+    const expirySeconds = options.expirySeconds ?? 24 * 60 * 60 * 7; // default expiration is 7 days in seconds.
+
+    return await presignV4({
+      protocol: this.protocol,
+      headers,
+      method,
+      path,
+      accessKey: this.accessKey,
+      secretKey: this.secretKey,
+      sessionToken: this.sessionToken,
+      region: this.region,
+      date: requestDate,
+      expirySeconds,
+    });
+  }
+
+  /**
+   * Generate a pre-signed GET request URL.
+   *
+   * Use options.expirySeconds to override the expiration time (default is 7 days)
+   */
+  presignedGetObject(
+    objectName: string,
+    options: {
+      bucketName?: string;
+      versionId?: string;
+      responseParams?: ResponseOverrideParams;
+      expirySeconds?: number;
+      requestDate?: Date;
+    } = {},
+  ): Promise<string> {
+    const { versionId, responseParams, ...otherOptions } = options;
+    const parameters: Record<string, string> = {
+      ...responseParams,
+      ...(versionId ? { versionId } : {}),
+    };
+    return this.getPresignedUrl("GET", objectName, { parameters, ...otherOptions });
   }
 
   /**
@@ -1053,7 +1077,7 @@ export class Client {
       bucket: bucketName,
       objectKey: objectName,
       accessKey: this.accessKey || "",
-      secretKey: this.#secretKey || "",
+      secretKey: this.secretKey || "",
       region: this.region,
       date: requestDate,
       expirySeconds,

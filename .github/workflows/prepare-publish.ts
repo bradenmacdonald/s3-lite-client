@@ -8,6 +8,12 @@ const npmPackageName = "@bradenmacdonald/s3-lite-client";
 const npmPackageExtra = {
   description: "A lightweight S3 client.",
   repository: "github:bradenmacdonald/s3-lite-client",
+  // Every module here only declares things; none of them run code on import. Saying so lets bundlers
+  // drop the ones a given app never touches. Without it, `ObjectUploader extends WritableStream` and
+  // `TransformChunkSizes extends TransformStream` pin their modules into every bundle, because a class
+  // extending a global counts as a possible side effect. That's ~3kB (~1.1kB gzipped) that an app
+  // importing only S3ReadClient would otherwise pay for code it can never reach.
+  sideEffects: false,
 };
 
 ////////////////////////////////////////////////////////

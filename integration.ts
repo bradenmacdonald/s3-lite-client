@@ -7,7 +7,7 @@ import { assert } from "@std/assert/assert";
 import { assertEquals } from "@std/assert/equals";
 import { assertInstanceOf } from "@std/assert/instance-of";
 import { assertRejects } from "@std/assert/rejects";
-import { S3Client, type S3CommonPrefix, S3Errors, type S3Object } from "./mod.ts";
+import { S3Client, type S3CommonPrefix, S3Errors, type S3Object, S3ReadClient } from "./mod.ts";
 
 const config = {
   endPoint: "http://localhost:9000",
@@ -17,6 +17,7 @@ const config = {
   bucket: "dev-bucket",
 };
 const client = new S3Client(config);
+const readClient = new S3ReadClient(config);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Test an unauthenticated client downloading public data
@@ -153,12 +154,20 @@ Deno.test({
 
 Deno.test({
   name: "exists() can check if an object exists",
-  fn: async () => {
+  fn: async (t) => {
     const result1 = await client.exists("definitely-does-not-exist.foobar");
     assertEquals(result1, false);
     await client.putObject("this-will-exist.now", "contents");
-    const result2 = await client.exists("this-will-exist.now");
-    assertEquals(result2, true);
+    // Test both Client and ReadClient:
+    for (const c of [client, readClient]) {
+      await t.step({
+        name: c.constructor.name,
+        fn: async () => {
+          const result2 = await c.exists("this-will-exist.now");
+          assertEquals(result2, true);
+        },
+      });
+    }
   },
 });
 
@@ -181,7 +190,7 @@ Deno.test({
 
 Deno.test({
   name: "statObject() can get an object's status",
-  fn: async () => {
+  fn: async (t) => {
     const key = "test-stat.txt";
     const metadata = {
       "Content-Type": "test/fake-data",
@@ -190,14 +199,23 @@ Deno.test({
     };
     const contents = "This is the contents of the file. 🎈"; // Red balloon tests unicode support
     await client.putObject(key, contents, { metadata });
-    const stat = await client.statObject(key);
-    assertEquals(stat.type, "Object");
-    assertEquals(stat.key, key);
-    assertInstanceOf(stat.lastModified, Date);
-    assertEquals(stat.lastModified.getFullYear(), new Date().getFullYear()); // This may fail at exactly midnight on New Year's, no big deal
-    assertEquals(stat.size, new TextEncoder().encode(contents).length); // Size in bytes is different from the length of the string
-    assertEquals(stat.versionId, null);
-    assertEquals(stat.metadata, metadata);
+
+    // Test both Client and ReadClient:
+    for (const c of [client, readClient]) {
+      await t.step({
+        name: c.constructor.name,
+        fn: async () => {
+          const stat = await client.statObject(key);
+          assertEquals(stat.type, "Object");
+          assertEquals(stat.key, key);
+          assertInstanceOf(stat.lastModified, Date);
+          assertEquals(stat.lastModified.getFullYear(), new Date().getFullYear()); // This may fail at exactly midnight on New Year's, no big deal
+          assertEquals(stat.size, new TextEncoder().encode(contents).length); // Size in bytes is different from the length of the string
+          assertEquals(stat.versionId, null);
+          assertEquals(stat.metadata, metadata);
+        },
+      });
+    }
   },
 });
 
@@ -242,11 +260,20 @@ Deno.test({
 
 Deno.test({
   name: "getObject() can download a small file",
-  fn: async () => {
+  fn: async (t) => {
     const contents = "This is the contents of the file. 👻"; // Throw in an Emoji to ensure Unicode round-trip is working.
     await client.putObject("test-get.txt", contents);
-    const response = await client.getObject("test-get.txt");
-    assertEquals(await response.text(), contents);
+
+    // Test both Client and ReadClient:
+    for (const c of [client, readClient]) {
+      await t.step({
+        name: c.constructor.name,
+        fn: async () => {
+          const response = await client.getObject("test-get.txt");
+          assertEquals(await response.text(), contents);
+        },
+      });
+    }
   },
 });
 
@@ -443,7 +470,7 @@ Deno.test({
     await client.putObject(`${prefix}file-b.txt`, "file B");
     await client.putObject(`${prefix}subpath/file-c.txt`, "file C");
     await client.putObject(`${prefix}subpath/file-d.txt`, "file D");
-    const response = client.listObjects({ prefix });
+    const response = readClient.listObjects({ prefix });
     const results = await Array.fromAsync(response);
     assertEquals(results.length, 4);
     assertEquals(results[0].key, "list-objects-test-1/file-a.txt");
@@ -474,14 +501,14 @@ Deno.test({
     }
     await Promise.all(putPromises);
     // Now retrieve them:
-    const response = client.listObjects({ prefix, pageSize: 10 });
+    const response = readClient.listObjects({ prefix, pageSize: 10 });
     const results = await Array.fromAsync(response);
     assertEquals(results.length, 30);
     assertEquals(results[0].key, `${prefix}file-00.txt`);
     assertEquals(results[29].key, `${prefix}file-29.txt`);
 
     // And it can limit the total number of results:
-    const limitedResponse = client.listObjects({ prefix, pageSize: 10, maxResults: 25 });
+    const limitedResponse = readClient.listObjects({ prefix, pageSize: 10, maxResults: 25 });
     const limitedResults = await Array.fromAsync(limitedResponse);
     assertEquals(limitedResults.length, 25);
   },
@@ -499,7 +526,7 @@ Deno.test({
     await client.putObject(`${prefix}subpath-2/file-2-b.txt`, "file 1B");
     await client.putObject(`${prefix}x-file.txt`, "file X");
 
-    const response = client.listObjectsGrouped({ prefix, delimiter: "/", pageSize: 3 });
+    const response = readClient.listObjectsGrouped({ prefix, delimiter: "/", pageSize: 3 });
     const results = await Array.fromAsync(response);
     assertEquals(results.length, 5);
     // Note the order that we get the results in:
@@ -527,7 +554,7 @@ Deno.test({
 
     // Retrieve the first page only:
     async function retrievePage(continuationToken?: string) {
-      const iterator = client.listObjectsGrouped({ continuationToken, prefix, pageSize: 10, maxResults: 10 });
+      const iterator = readClient.listObjectsGrouped({ continuationToken, prefix, pageSize: 10, maxResults: 10 });
       const page: S3Object[] = [];
       let r: IteratorResult<S3Object | S3CommonPrefix, string | undefined>;
       while (!(r = await iterator.next()).done) if (r.value.type === "Object") page.push(r.value);
@@ -590,7 +617,7 @@ Deno.test({
 
     // Retrieve the first page only:
     async function retrievePage(continuationToken?: string) {
-      const iterator = client.listObjectsGrouped({ continuationToken, prefix, pageSize: 10, maxResults: 10 });
+      const iterator = readClient.listObjectsGrouped({ continuationToken, prefix, pageSize: 10, maxResults: 10 });
       const page: S3Object[] = [];
       let r: IteratorResult<S3Object | S3CommonPrefix, string | undefined>;
       while (!(r = await iterator.next()).done) if (r.value.type === "Object") page.push(r.value);

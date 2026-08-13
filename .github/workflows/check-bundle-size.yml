@@ -16,10 +16,28 @@ jobs:
         with:
           node-version: 24.x
       - name: Setup package.json
-        run: echo '{}' > package.json
+        # "sideEffects": false is what the published npm package declares (see prepare-publish.ts), so
+        # we set it here too, or the per-entry-point numbers below would be measured under different
+        # rules than real consumers get. Without it, the classes that extend WritableStream and
+        # TransformStream pin their modules into every bundle, even one that can never reach them.
+        run: echo '{"sideEffects":false}' > package.json
       - name: Install esbuild
         run: npm install esbuild
-      - name: Create minified build
-        run: ./node_modules/.bin/esbuild mod.ts --bundle --minify --outfile=s3-lite-client.min.js
-      - name: Check gzipped size
-        run: gzip s3-lite-client.min.js && ls -lh s3-lite-client.min.js.gz
+      - name: Create entry points
+        # Each entry point pulls in one export, so we can see what a consumer of it actually pays for.
+        run: |
+          echo 'import { S3Client } from "./mod.ts"; console.log(S3Client);' > entry-client.ts
+          echo 'import { S3ReadClient } from "./mod.ts"; console.log(S3ReadClient);' > entry-read-client.ts
+      - name: Check gzipped sizes
+        run: |
+          {
+            echo "| bundle | minified | gzipped |"
+            echo "| --- | ---: | ---: |"
+            for target in "whole library:mod.ts" "S3Client:entry-client.ts" "S3ReadClient:entry-read-client.ts"; do
+              label="${target%%:*}"
+              entry="${target#*:}"
+              ./node_modules/.bin/esbuild "$entry" --bundle --minify --outfile=bundle.js
+              gzip -9 -c bundle.js > bundle.js.gz
+              echo "| $label | $(wc -c < bundle.js | tr -d ' ') B | $(wc -c < bundle.js.gz | tr -d ' ') B |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
