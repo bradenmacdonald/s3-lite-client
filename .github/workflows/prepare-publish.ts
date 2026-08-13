@@ -8,6 +8,8 @@ const npmPackageName = "@bradenmacdonald/s3-lite-client";
 const npmPackageExtra = {
   description: "A lightweight S3 client.",
   repository: "github:bradenmacdonald/s3-lite-client",
+  // Every module here only declares things; none of them run code on import.
+  sideEffects: false,
 };
 
 ////////////////////////////////////////////////////////
