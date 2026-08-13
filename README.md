@@ -59,7 +59,7 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 ## Installation
 
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
-- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@0.9.6";`
+- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@1.0.0";`
 - NPM: `npm add @bradenmacdonald/s3-lite-client`
 - Yarn: `yarn add jsr:@bradenmacdonald/s3-lite-client`
 - pnpm: `pnpm add jsr:@bradenmacdonald/s3-lite-client`
@@ -67,9 +67,9 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 - Browser:
   ```html
   <script type="module">
-  import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6";
+  import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.0";
   // Or:
-  const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@0.9.6");
+  const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.0");
   </script>
   ```
 
