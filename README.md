@@ -4,12 +4,11 @@
 [![no dependencies](https://depx.co/api/badge/@bradenmacdonald/s3-lite-client)](https://depx.co/pkg/@bradenmacdonald/s3-lite-client)
 [![minimized gzipped size](https://img.shields.io/bundlejs/size/%40bradenmacdonald%2Fs3-lite-client)](https://bundlejs.com/?q=%40bradenmacdonald%2Fs3-lite-client&treeshake=%5B*%5D&text=%22const+s3client+%3D+new+S3Client%28%7B%5Cn++endPoint%3A+%5C%22https%3A%2F%2Fs3.us-east-1.amazonaws.com%5C%22%2C%5Cn++region%3A+%5C%22us-east-1%5C%22%2C%5Cn++bucket%3A+%5C%22openalex%5C%22%2C%5Cn%7D%29%3B%5Cn%5Cn%2F%2F+Log+data+about+each+object+found+under+the+%27data%2Fconcepts%2F%27+prefix%3A%5Cnfor+await+%28const+obj+of+s3client.listObjects%28%7B+prefix%3A+%5C%22data%2Fconcepts%2F%5C%22+%7D%29%29+%7B%5Cn++console.log%28obj%29%3B%5Cn%7D%22)
 [![JSR Version](https://jsr.io/badges/@bradenmacdonald/s3-lite-client)](https://jsr.io/@bradenmacdonald/s3-lite-client)
-[![JSR Downloads](https://jsr.io/badges/@bradenmacdonald/s3-lite-client/total-downloads)](https://jsr.io/@bradenmacdonald/s3-lite-client)
 [![NPM Version](https://img.shields.io/npm/v/%40bradenmacdonald%2Fs3-lite-client)](https://www.npmjs.com/package/@bradenmacdonald/s3-lite-client)
+[![JSR Downloads](https://jsr.io/badges/@bradenmacdonald/s3-lite-client/total-downloads)](https://jsr.io/@bradenmacdonald/s3-lite-client)
 
 This is a lightweight S3 (object storage) client for JavaScript runtimes (Deno, Node 22+, Bun, browsers, etc.). It is
-designed to offer all the key features you may need, without bloat. It should work with any JavaScript runtime that
-supports the `fetch` API, web streams API, and ES modules (ESM).
+designed to offer all the key features you may need, without bloat.
 
 **Key features**:
 
@@ -19,8 +18,11 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
     the time of writing.
 - Works with any S3-compatible storage service: AWS S3, MinIO, Cloudflare R2, Backblaze B2, DigitalOcean Spaces,
   Supabase storage, etc.
+- Works with any JavaScript runtime that supports the `fetch` API, web streams API, and ES modules (ESM). This client
+  does not depend on any NodeJS APIs nor Deno APIs.
 - Implemented in TypeScript and fully typed.
-- 100% MIT licensed, derived from the excellent [MinIO JavaScript Client](https://github.com/minio/minio-js).
+- MIT licensed (originally based on the [MinIO JavaScript Client](https://github.com/minio/minio-js)).
+- Used in production since 2021.
 
 ## Supported functionality
 
@@ -75,7 +77,7 @@ supports the `fetch` API, web streams API, and ES modules (ESM).
 
 ## Usage Examples (Quickstart)
 
-List data files from a public data set on Amazon S3:
+**List data files from a public data set on Amazon S3:**
 
 ```typescript
 import { S3Client } from "@bradenmacdonald/s3-lite-client";
@@ -108,7 +110,11 @@ const keys = await Array.fromAsync(s3client.listObjects(), (entry) => entry.key)
 // ]
 ```
 
-Uploading and downloading a file using a local MinIO server:
+_(Note: As shown above, the list functions normally hide pagination details from you and convert the result to a single
+list as you retrieve each entry. If you need to request specific pages, see
+[this example](https://github.com/bradenmacdonald/s3-lite-client/blob/7cd52c07a78cdefc8d890dc5b5dc95f65ea20bc5/integration.ts#L520-L573).)_
+
+**Uploading and downloading a file using a local MinIO server:**
 
 ```typescript
 import { S3Client } from "@bradenmacdonald/s3-lite-client";
@@ -134,7 +140,7 @@ await result.body!.pipeTo(localOutFile.writable);
 // result.text(), result.blob(), result.arrayBuffer(), or result.json()
 ```
 
-Creating a bucket on the S3 service of a local supabase development server:
+**Creating a bucket on the S3 service of a local supabase development server:**
 
 ```ts
 const client = new S3Client({
@@ -146,7 +152,7 @@ const client = new S3Client({
 await client.makeBucket("my-bucket");
 ```
 
-Set ACLs, Content-Type, custom metadata, etc. during upload:
+**Set ACLs, Content-Type, custom metadata, etc. during upload:**
 
 ```ts
 await s3client.putObject("key", streamOrData, {
@@ -157,7 +163,7 @@ await s3client.putObject("key", streamOrData, {
 });
 ```
 
-Create a presigned POST policy for direct uploads from a browser:
+**Create a presigned POST policy for direct uploads from a browser:**
 
 ```ts
 // Create a presigned POST policy
