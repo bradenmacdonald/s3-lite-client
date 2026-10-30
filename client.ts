@@ -11,7 +11,7 @@ import {
   type Uint8Array_,
 } from "./helpers.ts";
 import { ObjectUploader, uploadSingleRequest } from "./object-uploader.ts";
-import { presignPostV4, presignV4, signV4 } from "./signing.ts";
+import { type PolicyCondition, presignPostV4, presignV4, signV4 } from "./signing.ts";
 import { childText, parse as parseXML } from "./xml-parser.ts";
 
 export interface ClientOptions {
@@ -163,11 +163,6 @@ const maxObjectSize = 5 * 1024 * 1024 * 1024 * 1024;
  * than the 10,000 parts that S3 allows. With 10,000 parts, this supports objects up to 640GB.
  */
 const defaultPartSize = 64 * 1024 * 1024;
-
-/**
- * Interface for presigned POST policy conditions
- */
-export type PolicyCondition = Record<string, unknown> | string[];
 
 /**
  * Interface for the result of a presigned POST request
@@ -1029,7 +1024,7 @@ export class Client {
       requestDate?: Date;
       /**
        * Additional policy conditions to apply.
-       * See: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
+       * See: https://docs.aws.amazon.com/AmazonS3/latest/developerguide/sigv4-HTTPPOSTConstructPolicy.html
        */
       conditions?: PolicyCondition[];
       /**

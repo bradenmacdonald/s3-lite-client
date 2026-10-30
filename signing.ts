@@ -313,7 +313,10 @@ async function sha256hmac(
  * Type for S3 Post Policy conditions
  * S3 allows conditions to have different shapes
  */
-type PolicyCondition = Record<string, unknown> | string[];
+export type PolicyCondition =
+  | Record<string, unknown>
+  | ["starts-with" | "eq", string, string]
+  | [string, number, number];
 
 /**
  * Generate a presigned POST policy that can be used to allow direct uploads to S3.

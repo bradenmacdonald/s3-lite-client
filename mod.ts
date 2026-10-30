@@ -10,10 +10,10 @@ export {
   type CopiedObjectInfo as S3CopiedObjectInfo,
   type ObjectMetadata as S3ObjectMetadata,
   type ObjectStatus as S3ObjectStatus,
-  type PolicyCondition as S3PolicyCondition,
   type PresignedPostResult as S3PresignedPostResult,
   type ResponseOverrideParams as S3ResponseOverrideParams,
   type S3Object,
   type UploadedObjectInfo as S3UploadedObjectInfo,
 } from "./client.ts";
+export { type PolicyCondition as S3PolicyCondition } from "./signing.ts";
 export * as S3Errors from "./errors.ts";

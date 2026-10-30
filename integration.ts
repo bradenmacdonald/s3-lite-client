@@ -862,7 +862,7 @@ Deno.test({
       expirySeconds: 600,
       fields: { "Content-Type": contentType },
       conditions: [
-        ["content-length-range", "1", "100"], // Content must be between 1 and 100 bytes
+        ["content-length-range", 1, 100], // Content must be between 1 and 100 bytes
       ],
     });
 
@@ -900,7 +900,7 @@ Deno.test({
       expirySeconds: 600,
       fields: { "Content-Type": contentType },
       conditions: [
-        ["content-length-range", "1", "100"], // Content must be between 1 and 100 bytes
+        ["content-length-range", 1, 100], // Content must be between 1 and 100 bytes
       ],
     });
 
