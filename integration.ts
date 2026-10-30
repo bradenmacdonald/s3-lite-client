@@ -337,6 +337,30 @@ Deno.test({
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// getPresignedUrl() with query parameters
+
+Deno.test({
+  name: "getPresignedUrl() signs query parameters whose names are prefixes of other names",
+  fn: async () => {
+    const key = "test-presigned-query-param-order.txt";
+    const contents = "This is test content for query parameter ordering";
+    await client.putObject(key, contents);
+
+    // SigV4 sorts query parameters by name, then by value. Sorting the joined "name=value" strings instead would put
+    // "a-b=1" before "a=2" (and likewise for "x.y"/"x" and "v2"/"v"), and the server would reject the signature.
+    // S3 ignores these unknown parameters, but still includes them when it checks the signature.
+    const presignedUrl = await client.getPresignedUrl("GET", key, {
+      parameters: { a: "2", "a-b": "1", x: "3", "x.y": "4", v: "5", v2: "6" },
+    });
+    const response = await fetch(presignedUrl);
+    assertEquals(response.status, 200);
+    assertEquals(await response.text(), contents);
+
+    await client.deleteObject(key);
+  },
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // getPresignedUrl() with extraHeaders
 
 Deno.test({
