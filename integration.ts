@@ -1,5 +1,5 @@
 /**
- * These integration tests depend on a running MinIO installation.
+ * These integration tests depend on a running RustFS installation.
  *
  * See the README for instructions.
  */
@@ -51,12 +51,14 @@ Deno.test({
     assertInstanceOf(err, S3Errors.ServerError);
     assertEquals(err.statusCode, 403);
     assertEquals(err.code, "SignatureDoesNotMatch");
-    assertEquals(
-      err.message,
-      "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
+    // The rest of the message varies between servers (RustFS adds "Check your AWS secret access key...")
+    assert(
+      err.message.startsWith(
+        "The request signature we calculated does not match the signature you provided.",
+      ),
     );
-    assertEquals(err.bucketName, config.bucket);
-    // This used to work but MinIO no longer includes the region name in the error XML
+    // RustFS doesn't include the bucket name or region name in the error XML
+    // assertEquals(err.bucketName, config.bucket);
     // assertEquals(err.region, config.region);
   },
 });
@@ -670,7 +672,8 @@ Deno.test({
     assertInstanceOf(err, S3Errors.ServerError);
     assertEquals(err.code, "NoSuchKey");
     assertEquals(err.statusCode, 404);
-    assertEquals(err.key, sourceKey);
+    // RustFS doesn't include the key in the error XML
+    // assertEquals(err.key, sourceKey);
     assertEquals(err.message, "The specified key does not exist.");
   },
 });
@@ -786,6 +789,32 @@ Deno.test({
   },
 });
 
+/**
+ * Upload a form to a presigned POST URL.
+ *
+ * This helper only exists to work around a RustFS bug.
+ * RustFS fails with `LengthMismatch` unless the multipart body ends with a CRLF after the closing
+ * boundary. That CRLF is optional per RFC 2046 and Deno's FormData encoder omits it, so we add it.
+ *
+ * If not for that bug, this function could be replaced with just:
+ * ```
+ * await fetch(url, { method: "POST", body: formData });
+ * ```
+ */
+async function postForm(url: string, formData: FormData): Promise<Response> {
+  const request = new Request(url, { method: "POST", body: formData });
+  const body = new Uint8Array(await request.arrayBuffer());
+  if (body.at(-2) === 13 && body.at(-1) === 10) {
+    // Already ends with CRLF (e.g. Node, Bun)
+    return await fetch(url, { method: "POST", body: formData });
+  }
+  return await fetch(url, {
+    method: "POST",
+    body: new Uint8Array([...body, 13, 10]),
+    headers: { "Content-Type": request.headers.get("Content-Type")! },
+  });
+}
+
 Deno.test({
   name: "presignedPostObject",
   fn: async () => {
@@ -813,10 +842,7 @@ Deno.test({
     formData.append("file", new Blob([content], { type: contentType }));
 
     // Upload the object using the presigned POST
-    const response = await fetch(url, {
-      method: "POST",
-      body: formData,
-    });
+    const response = await postForm(url, formData);
 
     assertEquals(response.status, 204);
 
@@ -846,10 +872,7 @@ Deno.test({
     });
     formData2.append("file", new Blob([content], { type: contentType }));
 
-    const response2 = await fetch(url2, {
-      method: "POST",
-      body: formData2,
-    });
+    const response2 = await postForm(url2, formData2);
 
     assertEquals(response2.status, 204);
 
@@ -888,10 +911,7 @@ Deno.test({
     });
     validFormData.append("file", new Blob([smallContent], { type: contentType }));
 
-    const validResponse = await fetch(url, {
-      method: "POST",
-      body: validFormData,
-    });
+    const validResponse = await postForm(url, validFormData);
     assertEquals(validResponse.status, 204);
 
     // Now try with content that violates the policy - should fail
@@ -901,10 +921,7 @@ Deno.test({
     });
     invalidFormData.append("file", new Blob([largeContent], { type: contentType }));
 
-    const invalidResponse = await fetch(url, {
-      method: "POST",
-      body: invalidFormData,
-    });
+    const invalidResponse = await postForm(url, invalidFormData);
 
     // Should receive an error status code
     assert(invalidResponse.status >= 400);

@@ -28,8 +28,10 @@ jobs:
       - name: Run tests
         run: deno test
 
-      - name: Start MinIO for integration tests
-        run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+      - name: Start RustFS for integration tests
+        run: |
+          docker run --name rustfs --detach -e RUSTFS_ACCESS_KEY=AKIA_DEV -e RUSTFS_SECRET_KEY=secretkey -e RUSTFS_REGION=dev-region -p 9000:9000 --entrypoint /bin/sh rustfs/rustfs:1.0.4 -c 'mkdir -p /data/dev-bucket && exec /entrypoint.sh rustfs'
+          timeout 60 sh -c 'until curl -sf http://localhost:9000/health > /dev/null; do sleep 1; done'
 
       - name: Run integration tests
         run: deno test --allow-net integration.ts
@@ -45,8 +47,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Start MinIO for integration tests
-        run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+      - name: Start RustFS for integration tests
+        run: |
+          docker run --name rustfs --detach -e RUSTFS_ACCESS_KEY=AKIA_DEV -e RUSTFS_SECRET_KEY=secretkey -e RUSTFS_REGION=dev-region -p 9000:9000 --entrypoint /bin/sh rustfs/rustfs:1.0.4 -c 'mkdir -p /data/dev-bucket && exec /entrypoint.sh rustfs'
+          timeout 60 sh -c 'until curl -sf http://localhost:9000/health > /dev/null; do sleep 1; done'
       # TODO: can we get jsr to load the dependency versions from deno.json?
       - name: Install dependencies
         run: bunx jsr add @std/assert@1.0.13
@@ -63,8 +67,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-      - name: Start MinIO for integration tests
-        run: docker run --name minio --detach -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+      - name: Start RustFS for integration tests
+        run: |
+          docker run --name rustfs --detach -e RUSTFS_ACCESS_KEY=AKIA_DEV -e RUSTFS_SECRET_KEY=secretkey -e RUSTFS_REGION=dev-region -p 9000:9000 --entrypoint /bin/sh rustfs/rustfs:1.0.4 -c 'mkdir -p /data/dev-bucket && exec /entrypoint.sh rustfs'
+          timeout 60 sh -c 'until curl -sf http://localhost:9000/health > /dev/null; do sleep 1; done'
       - name: Configure JSR
         run: echo '@jsr:registry=https://npm.jsr.io' > .npmrc
       - name: Setup package.json

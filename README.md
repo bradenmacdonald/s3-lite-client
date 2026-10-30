@@ -114,12 +114,12 @@ _(Note: As shown above, the list functions normally hide pagination details from
 list as you retrieve each entry. If you need to request specific pages, see
 [this example](https://github.com/bradenmacdonald/s3-lite-client/blob/7cd52c07a78cdefc8d890dc5b5dc95f65ea20bc5/integration.ts#L520-L573).)_
 
-**Uploading and downloading a file using a local MinIO server:**
+**Uploading and downloading a file using a local S3-compatible server (e.g. RustFS):**
 
 ```typescript
 import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
-// Connecting to a local MinIO server:
+// Connecting to a local RustFS server:
 const s3client = new S3Client({
   endPoint: "http://localhost:9000",
   region: "dev-region",
@@ -210,21 +210,22 @@ To format the code, use:
 deno fmt
 ```
 
-To run the integration tests, first start MinIO with this command:
+To run the integration tests, first start [RustFS](https://rustfs.com/) with this command:
 
 ```sh
-docker run --rm -e MINIO_ROOT_USER=AKIA_DEV -e MINIO_ROOT_PASSWORD=secretkey -e MINIO_REGION_NAME=dev-region -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh minio/minio:RELEASE.2025-02-28T09-55-16Z -c 'mkdir -p /data/dev-bucket && minio server --console-address ":9001" /data'
+docker run --rm --name rustfs -e RUSTFS_ACCESS_KEY=AKIA_DEV -e RUSTFS_SECRET_KEY=secretkey -e RUSTFS_REGION=dev-region -e RUSTFS_CONSOLE_ENABLE=true -p 9000:9000 -p 9001:9001 --entrypoint /bin/sh rustfs/rustfs:1.0.4 -c 'mkdir -p /data/dev-bucket && exec /entrypoint.sh rustfs'
 ```
 
-Then while MinIO is running, run
+Then while RustFS is running, run
 
 ```sh
 deno test --allow-net integration.ts
 ```
 
-(If you encounter issues and need to debug what MinIO is seeing, run these two commands:)
+(If you encounter issues and need to debug what RustFS is seeing, you can browse the bucket using the web console at
+http://localhost:9001/rustfs/console/index.html (log in with the access key and secret key above) and view the server's
+warning/error logs with this command:)
 
 ```sh
-mc alias set localdebug http://localhost:9000 AKIA_DEV secretkey
-mc admin trace --verbose --all localdebug
+docker exec rustfs tail -f /logs/rustfs.log
 ```
