@@ -341,6 +341,24 @@ Deno.test({
         "\n" +
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     );
+    // Query parameters are sorted by name, then by value, not as joined "name=value" strings: "a" comes before "a-b"
+    // even though "a-b=1" sorts before "a=2" as a string.
+    assertEquals(
+      getCanonicalRequest(
+        "GET",
+        "/object123?a-b=1&a=2&a=1&x.y=4&x=3",
+        new Headers(),
+        [],
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      ),
+      "GET\n" +
+        "/object123\n" +
+        "a=1&a=2&a-b=1&x=3&x.y=4\n" +
+        "\n" +
+        "\n" +
+        "\n" +
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
   },
 });
 
