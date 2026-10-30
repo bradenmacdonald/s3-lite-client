@@ -234,9 +234,12 @@ function getCanonicalRequest(
       .map((element) => {
         const [key, val] = element.split("=", 2);
         // The input is assumed to be encoded, so we need to decode it first.
-        return awsUriEncode(decodeURIComponent(key)) + "=" + awsUriEncode(decodeURIComponent(val || ""));
+        return [awsUriEncode(decodeURIComponent(key)), awsUriEncode(decodeURIComponent(val || ""))];
       })
-      .sort() // sort after encoding
+      // Sort by name, then by value, after encoding. Sorting the joined "name=value" strings would put "a-b=1"
+      // before "a=2", but the name "a" comes before "a-b".
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+      .map(([key, val]) => key + "=" + val)
       .join("&");
   } else {
     requestQuery = "";
