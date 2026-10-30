@@ -61,7 +61,7 @@ designed to offer all the key features you may need, without bloat.
 ## Installation
 
 - Deno: `deno add @bradenmacdonald/s3-lite-client`
-- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@1.0.0";`
+- Deno (no install): `import { S3Client } from "jsr:@bradenmacdonald/s3-lite-client@1.0.1";`
 - NPM: `npm add @bradenmacdonald/s3-lite-client`
 - Yarn: `yarn add jsr:@bradenmacdonald/s3-lite-client`
 - pnpm: `pnpm add jsr:@bradenmacdonald/s3-lite-client`
@@ -69,9 +69,9 @@ designed to offer all the key features you may need, without bloat.
 - Browser:
   ```html
   <script type="module">
-  import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.0";
+  import { S3Client } from "https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.1";
   // Or:
-  const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.0");
+  const { S3Client } = await import("https://esm.sh/jsr/@bradenmacdonald/s3-lite-client@1.0.1");
   </script>
   ```
 
